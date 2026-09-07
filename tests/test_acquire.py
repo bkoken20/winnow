@@ -29,8 +29,10 @@ from winnow.acquire import (
     [
         ("https://youtu.be/abc123", True),
         ("http://example.com/talk", True),
-        ("/home/me/talk", False),
-        ("C:/Users/me/talk", False),
+        # Relative rather than absolute: the repo forbids machine paths in tracked files,
+        # and these only need to be non-URLs.
+        ("./talk", False),
+        ("../archive/talk", False),
         ("talk.vtt", False),
         ("", False),
         ("ftp://example.com/x", False),

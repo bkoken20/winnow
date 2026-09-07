@@ -7,42 +7,63 @@
     "vision": "qwen2.5vl:7b"
   },
   "_caveat": "Single runs on one machine with one model set. Treat as the right order of magnitude, not as a specification. Different hardware or models will differ substantially.",
-
   "spoken_talk_ingest": {
     "source": "a 25-minute talk, 21 KB of transcript after flattening captions",
-    "passes": [2000, 1000, 4000],
+    "passes": [
+      2000,
+      1000,
+      4000
+    ],
     "minutes": 4.9,
     "raw_seconds": 293,
     "claims": 72,
     "how": "winnow ingest against a fresh corpus, wall-clock timed, defaults unchanged"
   },
-
   "dedupe_scan_cost": {
     "ms_per_stored_claim_per_comparison": 0.039,
     "example": "~390 ms per insert at 10,000 stored claims",
     "how": "timed similarity_search at corpus sizes 500 / 2,000 / 5,000 / 10,000",
     "note": "grows linearly per claim, so a run's total scanning grows quadratically"
   },
-
   "projection_accuracy": {
     "ratio_range": "0.97x-1.19x of actual",
-    "corpus_sizes_tested": [0, 2000, 5000],
+    "corpus_sizes_tested": [
+      0,
+      2000,
+      5000
+    ],
     "how": "projected vs wall-clock for a 200-300 file index at each corpus size"
   },
-
   "chunk_size_coverage": {
     "note": "coverage is relative to the union of settings tested, never to what exists",
-    "documentation": {"1000": 53, "2000": 44, "4000": 31, "12000": 11, "120000": 4},
-    "spoken": {"1000": 37, "2000": 39, "4000": 25, "40000": 9},
+    "documentation": {
+      "1000": 53,
+      "2000": 44,
+      "4000": 31,
+      "12000": 11,
+      "120000": 4
+    },
+    "spoken": {
+      "1000": 37,
+      "2000": 39,
+      "4000": 25,
+      "40000": 9
+    },
     "how": "experiments/CHUNK_SIZE.md"
   },
-
   "multi_pass_coverage": {
-    "documentation": {"2000": 44, "1000+2000": 78, "1000+2000+4000": 90},
-    "spoken": {"2000": 39, "1000+2000": 71, "1000+2000+4000": 92},
+    "documentation": {
+      "2000": 44,
+      "1000+2000": 78,
+      "1000+2000+4000": 90
+    },
+    "spoken": {
+      "2000": 39,
+      "1000+2000": 71,
+      "1000+2000+4000": 92
+    },
     "how": "experiments/TWO_PASS.md"
   },
-
   "faithfulness": {
     "graded_sample": 25,
     "supported": 22,
@@ -50,5 +71,18 @@
     "percent_faithful": 88,
     "local_judge_distortions_caught": "0 of 3, under two opposite prompt designs",
     "how": "experiments/CORRECTNESS.md -- graded claim-by-claim against the source by a frontier model, NOT a human"
+  },
+  "quickstart": {
+    "source": "fresh clone, empty corpus, README quickstart followed exactly",
+    "fetch_seconds": 23,
+    "fetch_files": 80,
+    "index_seconds": 479,
+    "index_minutes": 8.0,
+    "corpus_claims_after_index": 110,
+    "ingest_seconds": 296,
+    "ingest_minutes": 4.9,
+    "claims_from_the_video": 72,
+    "total_minutes_clone_to_verdict": 14,
+    "how": "timed end to end on the hardware above; corpus deleted first and verified empty"
   }
 }

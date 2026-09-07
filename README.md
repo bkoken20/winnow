@@ -24,20 +24,46 @@ producing a transcript yourself with faster-whisper.
 It runs locally. With no configuration at all, nothing leaves your machine.
 
 ```
-$ winnow ingest ./talk/
+$ winnow ingest https://youtu.be/IH8XmxiwliQ
 
-7 claims extracted
+running: yt-dlp --skip-download --write-subs --write-auto-subs --sub-format vtt ...
+72 claims extracted
 
-[known  ] 0.94  Quantising below Q4 costs noticeable accuracy on small models
-[known  ] 0.91  Retrieval quality matters more than model size for document QA
-[VARIANT] 0.81  Speculative decoding helps most at batch size 1
-[NEW    ] 0.32  Prefix caching cuts time-to-first-token by ~60% on repeated system prompts
-[known  ] 0.96  You should set the context window explicitly rather than trusting defaults
-[known  ] 0.89  GGUF quantisation formats trade size against perplexity
-[NEW    ] 0.28  Draft models below 1B params stop paying for themselves above 4-way batching
+[NEW    ] 0.70  A 177 billion parameter model can run effectively on a 5-year-old GPU with 12GB of VRAM.
+[NEW    ] 0.59  The Quen 4 exp model includes an additional 51 billion parameters in the form of a lookup table.
+[NEW    ] 0.66  The model runs at 16.5 tokens per second on a used gaming card.
+[VARIANT] 0.80  Speculative decoding gives no benefit when the draft shares the tokenizer family.
+[known  ] 0.94  Quantising below Q4 costs noticeable accuracy on small models.
 ```
 
-Five of those you already had. Two are worth your time.
+That is real output, not an illustration: a 25-minute talk, judged against a corpus built
+from llama.cpp, Ollama and vLLM documentation. The architecture claims are new to that
+corpus. The quantisation one is not.
+
+## Quickstart
+
+Fourteen minutes from clone to a real verdict, measured on a 12 GB consumer GPU:
+
+```bash
+git clone https://github.com/<you>/winnow.git && cd winnow
+pip install -e .                    # the `winnow` command
+pip install -U yt-dlp               # only if you want to pass URLs
+
+# 1. build a small corpus of what is already known in the field   (23s + 8 min)
+python scripts/fetch_starter_corpus.py --pack ai_tooling --dest ./notes --limit 80
+winnow index ./notes --accept-minutes 15
+
+# 2. judge something against it                                    (5 min)
+winnow ingest https://youtu.be/SOME_TALK --new-only
+```
+
+You also need [Ollama](https://ollama.com) running with three models pulled — see
+[Install](#install).
+
+`--limit 80` keeps step 1 to eight minutes and yields ~110 claims, past the 25 needed before
+Winnow will call anything novel. Drop the limit for a real corpus and it becomes an
+overnight job: the full starter set is 337 files and about 3.5 hours. Winnow measures and
+shows you that before it starts.
 
 ## Why this rather than a summarizer
 

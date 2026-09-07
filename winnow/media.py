@@ -18,7 +18,7 @@ from pathlib import Path
 # Extensions treated as media. Subtitles are explicitly NOT media -- see find_media_file.
 MEDIA_EXTENSIONS = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4a", ".mp3", ".wav", ".flac"}
 SUBTITLE_EXTENSIONS = {".vtt", ".srt", ".ass", ".ssa", ".sub"}
-TEXT_EXTENSIONS = {".txt", ".md", ".markdown"}
+TEXT_EXTENSIONS = {".txt", ".md", ".markdown", ".mdx"}
 
 
 class FFmpegMissing(RuntimeError):

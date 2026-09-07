@@ -40,7 +40,9 @@ def have_git() -> bool:
     return shutil.which("git") is not None
 
 
-def copy_markdown(src_root: Path, wanted: list[str], dest: Path, prefix: str) -> int:
+def copy_markdown(
+    src_root: Path, wanted: list[str], dest: Path, prefix: str, limit: int | None = None
+) -> int:
     copied = 0
     for rel in wanted:
         origin = src_root / rel
@@ -51,7 +53,16 @@ def copy_markdown(src_root: Path, wanted: list[str], dest: Path, prefix: str) ->
         else:
             print(f"    (missing: {rel})")
             continue
+        # With a --limit, pick files that will actually yield claims. Sorting by size
+        # alone picks stubs: a first attempt took the 40 smallest files, of which most
+        # were near-empty, and produced a corpus of zero claims. Substantial but not huge
+        # is what indexes quickly AND has something in it.
+        if limit is not None:
+            substantial = [p for p in files if 1_500 <= p.stat().st_size <= 12_000]
+            files = sorted(substantial or files, key=lambda p: p.stat().st_size)
         for path in files:
+            if limit is not None and copied >= limit:
+                break
             relative = path.relative_to(src_root)
             flat = f"{prefix}__{str(relative).replace('/', '__').replace(chr(92), '__')}"
             target = dest / flat
@@ -69,6 +80,11 @@ def main() -> int:
     parser.add_argument("--pack", default="ai_tooling")
     parser.add_argument("--dest", required=True, help="notes folder to populate")
     parser.add_argument("--dry-run", action="store_true", help="list sources and stop")
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="stop after this many files. A full corpus is an overnight job; a bounded one "
+             "is enough to see the tool work. Smallest files first, since they index fastest.",
+    )
     args = parser.parse_args()
 
     sources = load_sources(args.pack)
@@ -89,6 +105,9 @@ def main() -> int:
     dest.mkdir(parents=True, exist_ok=True)
     total = 0
     for source in sources:
+        if args.limit and total >= args.limit:
+            print(f"reached --limit {args.limit}; stopping")
+            break
         print(f"fetching {source['name']} ...")
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run(
@@ -99,7 +118,10 @@ def main() -> int:
             if result.returncode != 0:
                 print(f"    FAILED: {result.stderr.strip().splitlines()[-1:]}")
                 continue
-            copied = copy_markdown(Path(tmp), source["paths"], dest, source["name"])
+            remaining = (args.limit - total) if args.limit else None
+            copied = copy_markdown(
+                Path(tmp), source["paths"], dest, source["name"], limit=remaining
+            )
             total += copied
             print(f"    {copied} markdown files")
 

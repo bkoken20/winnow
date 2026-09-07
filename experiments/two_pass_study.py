@@ -73,11 +73,22 @@ DUPLICATE_THRESHOLD = 0.93
 NUM_CTX = 32768
 
 NOTES = _env_path("WINNOW_NOTES", "a folder of markdown notes")
-DOCS = [
-    "huggingface-transformers-docs__docs__source__en__llm_tutorial_optimization.md",
-    "llama.cpp-docs__docs__backend__SYCL.md",
-    "open-webui-docs__docs__troubleshooting__performance.md",
-]
+# The three largest markdown files in WINNOW_NOTES, whatever they are.
+#
+# These studies used to name three specific documents from the author's own corpus, which
+# made every "reproduce with..." instruction impossible for anyone else -- a forker pointed
+# WINNOW_NOTES at their notes and got a traceback about a filename they had never seen.
+# Absolute numbers will differ with different documents; the COMPARISON between settings is
+# what the studies are about, and that holds on any reasonably substantial corpus.
+def _largest_docs(folder: Path, count: int = 3) -> list[str]:
+    files = sorted(folder.glob("*.md"), key=lambda p: p.stat().st_size, reverse=True)
+    if len(files) < count:
+        raise SystemExit(
+            f"{folder} holds {len(files)} markdown files; this study needs at least {count}.
+"
+            f"  Populate it first:  python scripts/fetch_starter_corpus.py --dest {folder}"
+        )
+    return [f.name for f in files[:count]]
 VIDEO = _env_path("WINNOW_TRANSCRIPT", "a plain-text transcript file")
 
 DOC_SIZES_TO_RUN = [1_000, 2_000]          # texts were lost; must be regenerated
@@ -176,6 +187,7 @@ def what_the_big_pass_adds(small_texts, big_texts, cache, embedder, limit=10):
 
 
 def main() -> int:
+    DOCS = _largest_docs(NOTES)
     config = Config.load(HERE.parent / "winnow.json")
     llm = OllamaClient(host=config.ollama_host)
     embedder = build_embedder("ollama", config.embed_model, config.ollama_host)

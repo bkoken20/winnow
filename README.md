@@ -97,6 +97,7 @@ prompt is silently truncated and extraction then reports finding nothing at all.
 ```bash
 winnow init                              # writes winnow.json
 winnow status                            # configuration, corpus size, and what leaves the box
+winnow packs                             # domain packs available
 ```
 
 **Seed the corpus.** It does not have to be your own writing — it is simply what is already
@@ -164,7 +165,7 @@ model is precisely the thing you deserve to be warned about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. Seventeen behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. Twenty-two behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence.

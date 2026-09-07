@@ -155,6 +155,35 @@ def test_loopback_hosts_are_local(host):
     assert Config(ollama_host=host).host_is_local
 
 
+@pytest.mark.parametrize(
+    "host",
+    [
+        "ollama.example.com:11434",  # no scheme -- urlparse finds no hostname at all
+        "not-a-url",
+        "",
+        "://broken",
+    ],
+)
+def test_an_unreadable_host_is_never_called_local(host):
+    """The privacy check must fail CLOSED.
+
+    `ollama.example.com:11434` is an ordinary thing to write and parses to no hostname,
+    which an earlier version treated as loopback -- so the tool announced "FULLY LOCAL.
+    Nothing leaves this machine" for a remote server. A privacy statement that fails open
+    is worse than none, because the user reads it and believes it.
+    """
+    config = Config(ollama_host=host)
+    assert not config.host_is_local
+    assert not config.is_fully_local
+    assert "FULLY LOCAL" not in config.egress_statement().replace("NOT FULLY LOCAL", "")
+
+
+def test_an_unreadable_host_says_how_to_fix_it():
+    statement = Config(ollama_host="ollama.example.com:11434").egress_statement()
+    assert "cannot be read as a URL" in statement
+    assert "http://localhost:11434" in statement
+
+
 def test_cloud_judge_location_without_a_model_says_it_does_nothing():
     """A declared cloud judge with no model configured judges nothing at all."""
     statement = Config(judge_location="cloud").egress_statement()

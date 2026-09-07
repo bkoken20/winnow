@@ -59,13 +59,22 @@ CHUNK_SIZES = [4_000, 12_000, 30_000, 120_000]  # 120k = current default at num_
 DUPLICATE_THRESHOLD = 0.93
 NUM_CTX = 32768
 
-DOCS = [
-    # Three real documents, deliberately from different projects and of different
-    # character: a tutorial-style explainer, a backend build guide, and an API reference.
-    "huggingface-transformers-docs__docs__source__en__llm_tutorial_optimization.md",  # 47 KB
-    "llama.cpp-docs__docs__backend__SYCL.md",  # 45 KB
-    "open-webui-docs__docs__troubleshooting__performance.md",  # 60 KB
-]
+# The three largest markdown files in WINNOW_NOTES, whatever they are.
+#
+# These studies used to name three specific documents from the author's own corpus, which
+# made every "reproduce with..." instruction impossible for anyone else -- a forker pointed
+# WINNOW_NOTES at their notes and got a traceback about a filename they had never seen.
+# Absolute numbers will differ with different documents; the COMPARISON between settings is
+# what the studies are about, and that holds on any reasonably substantial corpus.
+def _largest_docs(folder: Path, count: int = 3) -> list[str]:
+    files = sorted(folder.glob("*.md"), key=lambda p: p.stat().st_size, reverse=True)
+    if len(files) < count:
+        raise SystemExit(
+            f"{folder} holds {len(files)} markdown files; this study needs at least {count}.
+"
+            f"  Populate it first:  python scripts/fetch_starter_corpus.py --dest {folder}"
+        )
+    return [f.name for f in files[:count]]
 
 
 def extract_at(llm, model, pack, text: str, chunk_chars: int) -> tuple[list[str], float]:
@@ -98,6 +107,7 @@ def covered(vector, pool: list[list[float]]) -> bool:
 
 
 def main() -> int:
+    DOCS = _largest_docs(NOTES)
     notes = _env_path("WINNOW_NOTES", "a folder of markdown notes")
     config = Config.load(Path(__file__).resolve().parent.parent / "winnow.json")
     llm = OllamaClient(host=config.ollama_host)

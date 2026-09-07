@@ -28,6 +28,8 @@ the end.
 | `text_num_ctx` | `32768` | **Set this to your model's real context length.** Ollama silently truncates to a small default if the value is wrong or unset, and extraction then reports finding nothing at all — no error, no warning. The single most costly setting to get wrong. |
 | `vision_model` | `qwen2.5vl:7b` | Describes sampled frames. Only used when the pack sets `use_frames`. |
 | `vision_num_ctx` | `8192` | Same rule as `text_num_ctx`, for the vision model. |
+| `frame_every_seconds` | `60` | Sample one frame per this many seconds of video. |
+| `max_frames` | `20` | Hard cap on frames per item. One vision call each, several seconds apiece, on the one path with **no cost gate** — so the default is deliberately modest. **Not measured:** no experiment here establishes how many frames are worth describing, unlike the chunking defaults. Treat both as conservative guesses. |
 | `embed_model` | `nomic-embed-text` | Embeds claims for similarity. Changing it after building a corpus makes old and new claims incomparable — claims record which model embedded them, and mismatched ones are skipped during search. Re-index if you switch. |
 | `embed_backend` | `ollama` | `ollama` for real embeddings. `hashing` is a deterministic offline stand-in **for tests only** — it produces meaningless similarity, and any verdict computed with it is stamped so it can be identified and discarded. |
 
@@ -45,6 +47,7 @@ the end.
 | setting | default | what it does |
 |---|---|---|
 | `judge_model` | *(empty)* | Empty means **tier 0**: novelty by embedding similarity alone, no language model, no API key. Set a model name to enable **tier 1**, which adds specificity, evidence and red-flag assessment. |
+| `judge_num_ctx` | `8192` | Context window for the tier-1 judge. Same rule as every other `num_ctx`: set it to the judge model's real capacity. |
 | `judge_location` | `local` | `local` or `cloud`. Purely declarative — it does not route anything, it determines what `winnow status` tells you about data leaving your machine. Set it honestly. |
 
 Novelty thresholds are currently constants in `winnow/judge.py`, not config: `0.90` and above

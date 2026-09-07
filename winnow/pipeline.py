@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -205,9 +206,13 @@ class Pipeline:
             # Describing frames is the most expensive thing an ingest does -- one vision
             # call each, several seconds apiece -- and unlike indexing there is no cost
             # gate on this path. Say so before spending it, rather than appearing to hang.
+            # Progress goes to stderr, not stdout: a caller importing this library may be
+            # parsing what the tool prints, and describing frames is slow enough that
+            # silence looks like a hang.
             print(
                 f"describing {len(frames)} frames from {media.name} "
                 f"({self.config.vision_model})...",
+                file=sys.stderr,
                 flush=True,
             )
             return self._describe_each(frames, prompt)

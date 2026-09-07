@@ -68,3 +68,42 @@ Four of the five defects it surfaced were introduced by the fixes made an hour e
 - Freezing the corpus fixed a talk being judged against itself, but made the same point
   appear **twice as `new`** when two passes found it. One finding is now reported once.
 - The README claimed fourteen verified behaviours where this file documented eleven.
+
+## Round three — attacking round two's repairs
+
+| # | mutation applied | result |
+|---|---|---|
+| 18 | privacy check fails OPEN again (scheme-less host called local) | RED |
+| 19 | a config setting shipped undocumented | RED |
+| 20 | README's perturbation count desynced from this file | RED |
+| 21 | an absolute machine path reintroduced into a tracked file | RED |
+| 22 | a doc linking to a file that does not exist | RED |
+
+Three of the four defects this round were again in the previous round's fixes:
+
+- **`ollama_host = "ollama.example.com:11434"`** — an ordinary thing to write, just missing
+  its scheme — parsed to no hostname, which the new local-check read as loopback. The tool
+  then announced **"FULLY LOCAL. Nothing leaves this machine"** for a remote server. The
+  check now fails closed: unreadable means not local, and the statement says how to fix it.
+- Three config settings added in round two (`frame_every_seconds`, `max_frames`,
+  `judge_num_ctx`) shipped **undocumented**, in the page whose completeness had been verified
+  by hand an hour earlier. A check that runs only when someone remembers is not a check, so
+  `tests/test_docs_match_code.py` now runs it every time.
+- Library progress output went to **stdout**, which a caller parsing the tool's output would
+  have to contend with. Moved to stderr.
+- The studies **hard-coded three document filenames from the author's own corpus**, so every
+  "reproduce with…" instruction in the experiment write-ups was impossible for anyone else:
+  a forker pointing `WINNOW_NOTES` at their notes got a traceback naming a file they had
+  never seen. They now take the three largest markdown files in the folder, whatever those
+  are, and say that absolute numbers will differ while the comparisons hold.
+
+### Two mutations that came back GREEN, and what each meant
+
+Both were faults in the *mutation*, not gaps in the tests — worth recording, because a
+perturbation that fails to break the code proves nothing either way and it is tempting to
+read it as a passing grade.
+
+- Replacing `docs/PARAMETERS.md` in the README hit the link's display text, leaving the href
+  valid. Mutating the href turned it red.
+- Disabling the scheme check alone left a second layer intact (`""` no longer counts as
+  loopback). Restoring both halves of the original defect turned it red.

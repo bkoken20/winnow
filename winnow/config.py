@@ -113,8 +113,14 @@ class Config:
         machine" while sending every word to another box, which is worse than saying
         nothing at all.
         """
-        host = (urlparse(self.ollama_host).hostname or "").lower()
-        return host in ("localhost", "127.0.0.1", "::1", "")
+        parsed = urlparse(self.ollama_host)
+        host = (parsed.hostname or "").lower()
+        if not parsed.scheme or not host:
+            # Unparseable, or missing its scheme (`ollama.example.com:11434` parses to no
+            # hostname at all). Refuse to call that local: this check fails CLOSED, because
+            # a privacy statement that fails open is worse than having none.
+            return False
+        return host in ("localhost", "127.0.0.1", "::1")
 
     @property
     def is_fully_local(self) -> bool:
@@ -135,12 +141,19 @@ class Config:
 
         reasons = []
         if not self.host_is_local:
-            host = urlparse(self.ollama_host).hostname
-            reasons.append(
-                f"ollama_host points at '{host}', which is not this machine -- EVERYTHING "
-                "goes there: the full text of every note and transcript you process, and "
-                "every claim extracted from them"
-            )
+            parsed = urlparse(self.ollama_host)
+            if not parsed.scheme or not parsed.hostname:
+                reasons.append(
+                    f"ollama_host ({self.ollama_host!r}) cannot be read as a URL -- it needs "
+                    "a scheme, e.g. 'http://localhost:11434'. Until it is fixed, where your "
+                    "data would go cannot be determined, so it is not being called local"
+                )
+            else:
+                reasons.append(
+                    f"ollama_host points at '{parsed.hostname}', which is not this machine -- "
+                    "EVERYTHING goes there: the full text of every note and transcript you "
+                    "process, and every claim extracted from them"
+                )
         if self.judge_location == "cloud" and self.judge_model:
             reasons.append(
                 f"a cloud judge ('{self.judge_model}') is declared, so the text of each "

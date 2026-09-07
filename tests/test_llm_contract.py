@@ -1,4 +1,11 @@
-"""The three enforced behaviours in winnow.llm.
+"""The five enforced behaviours in winnow.llm.
+
+    1. every generate call sets an explicit context window
+    2. a call with no context window is refused rather than silently truncated
+    3. JSON format is set when asked for and never forced on a prose call
+    4. transient failures retry, permanent ones do not, and retries give up
+    5. an embedding failure reports the server's own reason
+
 
 Each of these tests exists because the behaviour it checks is invisible when broken: the
 pipeline keeps running and simply produces nothing, or produces plausible nonsense. Each

@@ -1,8 +1,11 @@
 # Perturbation results
 
 A green test proves nothing unless it could have gone red. Each behaviour below was
-deliberately broken in the source, the guarding test was run, and the tree restored. All
-eleven mutations were detected.
+deliberately broken in the source, the guarding test was run, and the tree restored.
+
+**26 behaviours, over five rounds.** Every mutation was detected except the three recorded
+below as GREEN — two of which turned out to be faults in the mutation rather than gaps in
+the tests, and one of which was a real gap that this process found.
 
 Reproduce by applying the mutation, running the named test, and reverting.
 
@@ -96,6 +99,48 @@ Three of the four defects this round were again in the previous round's fixes:
   a forker pointing `WINNOW_NOTES` at their notes got a traceback naming a file they had
   never seen. They now take the three largest markdown files in the folder, whatever those
   are, and say that absolute numbers will differ while the comparisons hold.
+
+## Round four — reading experiments/ top to bottom
+
+Not a review of the code: a read of the folder's own write-ups, checking each claim against
+what the scripts do. Four behaviours came out of it, each broken afterwards to confirm the
+test fires alone.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 23 | `applies_to` removed from the reference grades | `test_the_reference_grades_say_which_source_they_belong_to` | RED |
+| 24 | the `WINNOW_REFERENCE_GRADES` gate removed | `test_the_strict_study_refuses_a_positional_join_it_cannot_verify` | RED |
+| 25 | the grades file renamed after a human grader again | `test_the_grades_file_is_not_named_after_a_grader_it_did_not_have` | RED |
+| 26 | a human attribution reinstated in a study script | `test_no_experiment_script_calls_its_reference_grades_human` | RED |
+
+The defect behind 23-25: `strict_judge_study.py` joined the author's positionally-keyed
+reference grades to whatever claims the current run extracted, and printed the agreement as
+a finding. On anyone else's transcript that is verdict 7 of one video against claim 7 of
+another, formatted exactly like the published number.
+
+## Round five — reading tests/ top to bottom
+
+No new behaviour, one widened: the link check of #22 named four documents by hand, and
+five tracked markdown files escaped it — including every file written in round four. It now
+discovers them from `git ls-files`, and asserts it found a plausible number before checking
+any of them.
+
+Re-verified after widening, by breaking a link in each of two files it did not previously
+reach: `experiments/README.md` RED, `tests/PERTURBATION.md` RED. Deliberately not numbered
+as new rows — the same guarantee covering more files is not a twenty-seventh guarantee, and
+counting it as one would inflate the number in the README.
+
+A structural sweep for tests that cannot fail — no assertion, an assertion on a literal, a
+swallowed exception, an unconditional skip — found **none**. Seven tests have no `assert`
+statement; all seven are negative controls ("this must not raise") or use `pytest.fail`,
+which is the same thing written differently.
+
+### A note on method, learned the expensive way
+
+Reverting perturbation 26 with `git checkout -- <file>` reverted the *whole file*, including
+uncommitted fixes that were not part of the mutation. Nothing was lost — they were re-applied
+— but a perturbation must be undone by undoing the perturbation, not by resetting the file
+it lives in. Commit first, or restore from a copy.
 
 ### Two mutations that came back GREEN, and what each meant
 

@@ -1,13 +1,16 @@
 """The shipped reference grades belong to one specific transcript.
 
-`correctness_human_grades.json` holds 25 verdicts keyed "0".."24" -- positions in a blind
-sample drawn from the author's transcript. `strict_judge_study.py` joins them to whatever
-claims the current run extracted, by that position.
+`correctness_reference_grades.json` holds 25 verdicts keyed "0".."24" -- positions in a
+blind sample drawn from the author's transcript. `strict_judge_study.py` used to join them
+to whatever claims the current run extracted, by that position.
 
-Point the studies at your own transcript, as the README tells you to, and the join is
-nonsense: verdict 7 of the author's sample is compared against your claim 7. The script
-prints "agreement with hand grades: 7/25 (28%)" in exactly the format of the published
-figure, with no warning that the two sides describe different sentences.
+Point the studies at your own transcript, as experiments/README.md tells you to, and the
+join is nonsense: verdict 7 of the author's sample compared against your claim 7, printed as
+"agreement with hand grades: 7/25 (28%)" in exactly the format of the published figure, with
+no warning that the two sides describe different sentences.
+
+(The file was called correctness_human_grades.json when this was written. Renaming it was
+part of the fix: its own `grader` field names a frontier model.)
 
 A number that is silently wrong is worse than no number, and this repo's own experiments
 exist to make that point about model judges. It applies to the harness too.

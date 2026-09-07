@@ -82,6 +82,8 @@ def test_readme_perturbation_count_matches_the_record():
         "Fifteen": 15, "Sixteen": 16, "Seventeen": 17, "Eighteen": 18,
         "Nineteen": 19, "Twenty": 20,
         "Twenty-one": 21, "Twenty-two": 22, "Twenty-three": 23, "Twenty-four": 24,
+        "Twenty-five": 25, "Twenty-six": 26, "Twenty-seven": 27, "Twenty-eight": 28,
+        "Twenty-nine": 29, "Thirty": 30,
     }
     claimed = [n for word, n in words.items() if f"{word} behaviours" in readme]
     assert claimed, "the README should state how many behaviours were perturbation-verified"
@@ -91,9 +93,23 @@ def test_readme_perturbation_count_matches_the_record():
     )
 
 
-@pytest.mark.parametrize(
-    "doc", ["README.md", "docs/PARAMETERS.md", "docs/ACQUISITION.md", "docs/DOMAIN_PACKS.md"]
-)
+def _tracked_markdown() -> list[str]:
+    """Every tracked .md, discovered rather than listed.
+
+    The hardcoded list of four missed five files, including a whole folder's worth added
+    later. A link check that only covers the documents someone remembered to enumerate
+    rots exactly where new writing happens.
+    """
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "ls-files", "*.md"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.split()
+    assert len(out) >= 8, f"expected the repo's markdown to be tracked, got {out}"
+    return sorted(out)
+
+
+@pytest.mark.parametrize("doc", _tracked_markdown())
 def test_internal_links_resolve(doc):
     path = ROOT / doc
     text = path.read_text(encoding="utf-8")

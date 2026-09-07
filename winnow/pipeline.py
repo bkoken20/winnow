@@ -279,8 +279,10 @@ class Pipeline:
                 ).strip()
             except OllamaError:
                 continue
-            # The pack tells the model how to say "nothing here"; honour whatever token it
-            # chose rather than hard-coding one, so a pack author is not silently ignored.
+            # The pack chooses its own "nothing here" token, so this cannot match a fixed
+            # string. What it can check without being told is that the whole reply is upper
+            # case -- which is therefore a REQUIREMENT on the token, and docs/DOMAIN_PACKS.md
+            # says so: a lower-case sentinel is stored as a real description.
             if not text or text.strip("`\"' .").isupper():
                 continue
             described.append(f"[{frame.seconds}s] {text}")

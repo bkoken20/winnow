@@ -7,7 +7,7 @@
     "kind": "technique | benchmark | limitation | recommendation | observation",
     "subject": "what the claim is about (a model, a tool, a method, a hardware class)",
     "condition": "when it holds -- hardware, model size, context length, workload",
-    "evidence": "what the source offers in support: measurement, demo, reasoning, or none",
+    "evidence": "what the source offers in support: measurement, demonstration, reasoning, or none",
     "actionable": "yes if a reader could do something differently because of it"
   },
   "extract_prompt": "extract_prompt.txt",

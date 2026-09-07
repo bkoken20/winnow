@@ -107,8 +107,15 @@ If the frame shows none of these — a talking head, a title card, a logo — re
 NO_TECHNICAL_CONTENT
 ```
 
-Without an escape, a model asked to describe a title card will describe it at length, and
-that noise ends up in your corpus.
+**Write that token in capitals, and nothing else on the line.** Winnow does not know your
+pack's token — you choose it — so it recognises an escape by the only property it can check
+without being told: the whole reply is upper case. A sentinel like `nothing here` is not
+recognised, and is stored as though it were a real description, then appended to the
+transcript under `[ON-SCREEN CONTENT]` where the extractor reads it as something that was
+genuinely on screen. Silent, and it degrades the very material frames exist to improve.
+
+Without an escape at all, a model asked to describe a title card will describe it at length,
+and that noise ends up in your corpus.
 
 ## starter_sources.json
 

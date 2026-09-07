@@ -1,25 +1,30 @@
 # Winnow
 
-**Tell me what's actually new.**
-
-Most of any talk or article restates things you have already met. Winnow pulls the claims
-out of new material, compares them against a corpus of what is already known, and tells you
-which few are genuinely new — instead of handing you another summary of things you knew last
-year.
-
-**What it takes:** a video URL, or a transcript, or a folder holding one.
+**Give it a YouTube link. It tells you what's in the video that you don't already know.**
 
 ```bash
-winnow ingest https://youtu.be/SOME_VIDEO --new-only
+winnow ingest https://youtu.be/IH8XmxiwliQ --new-only
 ```
 
-Captions are fetched with yt-dlp — which you install, and which Winnow never installs for
-you — and the exact command is printed before it runs. Nothing is downloaded silently, and
-video itself is only fetched with `--with-video`, for packs that describe frames.
+Winnow fetches the captions, pulls out every specific claim the video makes, and checks each
+one against a corpus of what you have already watched and read. Then it shows you the few
+that are new. Twenty-five minutes of video becomes a list you can read in two, and the parts
+you already knew are marked as such instead of wasting your time again.
 
-It does not transcribe: a video with no captions is a stop, not a silent empty result. It
-does not read PDFs. [docs/ACQUISITION.md](docs/ACQUISITION.md) covers both, including
-producing a transcript yourself with faster-whisper.
+It is not a summarizer. A summary tells you what a video said; it cannot tell you whether
+you needed to watch it. That question needs a memory of what you already know, which is what
+the corpus is.
+
+**Any topic.** What counts as a claim, and what "already known" means, live in a *domain
+pack* — a folder with a prompt and a schema. One ships, for AI and local-LLM tooling.
+Writing another is a JSON file and a prompt, not a fork.
+
+Links are the common case, not the only one: anything you can put in a text file works too —
+a transcript you made yourself, documentation, your own notes. Captions come from yt-dlp,
+which you install and which Winnow never installs for you, with the exact command printed
+before it runs. Winnow does not transcribe, so a video with no captions is a stop rather
+than a silent empty result, and it does not read PDFs.
+[docs/ACQUISITION.md](docs/ACQUISITION.md) covers both.
 
 It runs locally. With no configuration at all, nothing leaves your machine.
 
@@ -75,9 +80,11 @@ relative to your accumulated knowledge, never to the material in isolation.
 ## How it works
 
 ```
-   you acquire material            (Winnow never downloads — see docs/ACQUISITION.md)
+   a YouTube link                  (or a transcript, or a folder you already have)
               ↓
-   transcript, and optionally sampled frames
+   captions via yt-dlp             (you install it; the command is printed before it runs)
+              ↓
+   transcript, and optionally sampled frames   (frames only with --with-video)
               ↓
    claim extraction                (local model, guided by a domain pack)
               ↓
@@ -106,7 +113,8 @@ That division is the whole economic argument, and it is measured rather than ass
 
 | stage | who does it | why |
 |---|---|---|
-| transcription, frame description | local | bulk work, no judgement required |
+| fetching captions | yt-dlp, on your machine | no judgement required; Winnow never transcribes |
+| frame description | local vision model | only with `--with-video`, for packs that use it |
 | claim extraction | local | thousands of calls; this is where the tokens would go |
 | novelty by similarity | local embeddings | "have I seen this?" is a distance question, not a reasoning one |
 | **the final read** | **you, or a frontier model you direct** | the part local models measurably cannot do |
@@ -193,10 +201,11 @@ winnow index ~/notes
 Long indexing runs are measured before they start: Winnow processes one file, times it,
 projects the whole run, shows you the number, and waits for you to accept it.
 
-**Then judge new material:**
+**Then judge something:**
 
 ```bash
-winnow ingest ./talk/ --new-only
+winnow ingest https://youtu.be/SOME_VIDEO --new-only   # a link
+winnow ingest ./talk/ --new-only                       # or a folder you already have
 ```
 
 Judging reads the material three times, at three different chunk sizes, by default. That sounds

@@ -139,6 +139,59 @@ def test_a_vision_model_error_skips_that_frame_only(tmp_path, monkeypatch):
     pipeline.close()
 
 
+def test_ingest_writes_nothing_into_the_user_s_folder(tmp_path, monkeypatch):
+    """Winnow reads what it is pointed at. It does not leave files there.
+
+    Frame extraction originally wrote JPEGs into the source folder: a side effect nobody
+    asked for, which fails outright on read-only or shared storage and leaves litter behind
+    after every ingest. Frames belong in a temporary directory.
+    """
+    llm = EchoExtractLLM()
+    folder = material(tmp_path, with_media=True)
+    before = {p.name for p in folder.iterdir()}
+
+    # The real extractor, not a stub -- the point is where files land, and a stub that
+    # returns frames without writing them could not detect this.
+    pipeline = build(tmp_path, llm, monkeypatch)
+    captured = {}
+
+    def fake_ffmpeg(media, out_dir, every_seconds=30, limit=40):
+        captured["out_dir"] = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        jpeg = out_dir / "frame_00001.jpg"
+        jpeg.write_bytes(b"\xff\xd8\xff\xe0jpegish")
+        return [Frame(index=0, seconds=0, path=jpeg)]
+
+    monkeypatch.setattr("winnow.pipeline.extract_frames", fake_ffmpeg)
+    pipeline.ingest(folder)
+
+    assert {p.name for p in folder.iterdir()} == before, (
+        f"ingest left files behind in the source folder: "
+        f"{ {p.name for p in folder.iterdir()} - before }"
+    )
+    assert folder not in captured["out_dir"].parents, (
+        f"frames were extracted into the user's folder ({captured['out_dir']})"
+    )
+    pipeline.close()
+
+
+def test_frame_sampling_honours_the_configured_limits(tmp_path, monkeypatch):
+    """One vision call per frame on a path with no cost gate -- the limits must apply."""
+    llm = EchoExtractLLM()
+    pipeline = build(tmp_path, llm, monkeypatch, frame_every_seconds=90, max_frames=5)
+    seen = {}
+
+    def fake_ffmpeg(media, out_dir, every_seconds=30, limit=40):
+        seen.update(every_seconds=every_seconds, limit=limit)
+        return []
+
+    monkeypatch.setattr("winnow.pipeline.extract_frames", fake_ffmpeg)
+    pipeline.ingest(material(tmp_path, with_media=True))
+
+    assert seen == {"every_seconds": 90, "limit": 5}
+    pipeline.close()
+
+
 def test_packs_without_use_frames_never_touch_video(tmp_path, monkeypatch):
     llm = EchoExtractLLM()
     pipeline = build(tmp_path, llm, monkeypatch, frames=[fake_frame(tmp_path)])

@@ -49,6 +49,23 @@ def _env_path(name: str, what: str) -> Path:
     return Path(raw)
 
 
+
+def _require_prior(filename: str, produced_by: str) -> Path:
+    """Study outputs are not committed -- they embed verbatim source text, including
+    third-party material. Scripts that build on an earlier study therefore have to say
+    plainly what to run first, rather than dying on a missing file."""
+    path = HERE / filename
+    if not path.exists():
+        raise SystemExit(
+            f"{filename} not found.\n"
+            f"  This study builds on an earlier one. Run it first:\n"
+            f"      python experiments/{produced_by}\n"
+            f"  Study outputs are deliberately not committed (they contain verbatim source\n"
+            f"  text); each script regenerates its own."
+        )
+    return path
+
+
 from winnow.config import Config
 from winnow.embed import build_embedder, cosine_similarity
 from winnow.llm import OllamaClient
@@ -141,7 +158,7 @@ def main() -> int:
     chunks = windows(text)
     chunk_vectors = [embedder.embed(c) for c in chunks]
 
-    data = json.loads((HERE / "two_pass_results.json").read_text(encoding="utf-8"))
+    data = json.loads(_require_prior("two_pass_results.json", "two_pass_study.py").read_text(encoding="utf-8"))
     by_size = {int(k): v for k, v in data["texts"]["video"].items()}
     total = sum(len(v) for v in by_size.values())
     print(f"{total} claims, strict prompt, judge={JUDGE_MODEL}\n")
@@ -186,10 +203,10 @@ def main() -> int:
         print(f"{size:>8,} {n:>5} {f('SUPPORTED'):>11} {f('DISTORTED'):>11} {f('UNSUPPORTED'):>13}")
 
     # ---- against the hand-graded sample --------------------------------------
-    human = json.loads((HERE / "correctness_human_grades.json").read_text(encoding="utf-8"))["grades"]
-    sample = json.load(open(HERE / "correctness_blind_sample.json", encoding="utf-8"))
+    human = json.loads(_require_prior("correctness_human_grades.json", "correctness_study.py (then grade the sample)").read_text(encoding="utf-8"))["grades"]
+    sample = json.load(open(_require_prior("correctness_blind_sample.json", "correctness_study.py"), encoding="utf-8"))
     lenient = {str(r["n"]): r["verdict"]
-               for r in json.load(open(HERE / "correctness_judge_verdicts.json", encoding="utf-8"))}
+               for r in json.load(open(_require_prior("correctness_judge_verdicts.json", "correctness_study.py"), encoding="utf-8"))}
     strict_by_claim = {r["claim"]: r for r in records}
 
     print(f"\n{'=' * 92}\nAGAINST THE HAND-GRADED SAMPLE (n=25)\n{'=' * 92}")

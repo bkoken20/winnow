@@ -36,6 +36,12 @@ class Config:
     text_num_ctx: int = DEFAULT_TEXT_NUM_CTX
     vision_model: str = DEFAULT_VISION_MODEL
     vision_num_ctx: int = DEFAULT_VISION_NUM_CTX
+    # Frame sampling, used only when the pack sets `use_frames`. One vision call per frame,
+    # several seconds each, on a path with no cost gate -- so the default is deliberately
+    # modest. NOT measured: no experiment in this repository establishes how many frames are
+    # worth describing, unlike the chunking defaults. Treat these as conservative guesses.
+    frame_every_seconds: int = 60
+    max_frames: int = 20
     # Text handed to the model per extraction call. Small on purpose -- measured, see
     # experiments/CHUNK_SIZE.md. Not the same question as what the context window holds.
     chunk_chars: int = 2000

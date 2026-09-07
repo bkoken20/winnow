@@ -58,6 +58,23 @@ def _env_path(name: str, what: str) -> Path:
     return Path(raw)
 
 
+
+def _require_prior(filename: str, produced_by: str) -> Path:
+    """Study outputs are not committed -- they embed verbatim source text, including
+    third-party material. Scripts that build on an earlier study therefore have to say
+    plainly what to run first, rather than dying on a missing file."""
+    path = HERE / filename
+    if not path.exists():
+        raise SystemExit(
+            f"{filename} not found.\n"
+            f"  This study builds on an earlier one. Run it first:\n"
+            f"      python experiments/{produced_by}\n"
+            f"  Study outputs are deliberately not committed (they contain verbatim source\n"
+            f"  text); each script regenerates its own."
+        )
+    return path
+
+
 from winnow.config import Config
 from winnow.embed import build_embedder, cosine_similarity
 from winnow.llm import OllamaClient
@@ -125,7 +142,7 @@ def main() -> int:
     print(f"transcript {len(text) / 1024:.1f} KB -> {len(chunks)} retrieval windows")
     chunk_vectors = [embedder.embed(c) for c in chunks]
 
-    data = json.loads((HERE / "two_pass_results.json").read_text(encoding="utf-8"))
+    data = json.loads(_require_prior("two_pass_results.json", "two_pass_study.py").read_text(encoding="utf-8"))
     by_size = {int(k): v for k, v in data["texts"]["video"].items()}
     total = sum(len(v) for v in by_size.values())
     print(f"{total} claims across {len(by_size)} pass sizes\n")

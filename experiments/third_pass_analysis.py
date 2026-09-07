@@ -15,6 +15,23 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
+
+def _require_prior(filename: str, produced_by: str) -> Path:
+    """Study outputs are not committed -- they embed verbatim source text, including
+    third-party material. Scripts that build on an earlier study therefore have to say
+    plainly what to run first, rather than dying on a missing file."""
+    path = HERE / filename
+    if not path.exists():
+        raise SystemExit(
+            f"{filename} not found.\n"
+            f"  This study builds on an earlier one. Run it first:\n"
+            f"      python experiments/{produced_by}\n"
+            f"  Study outputs are deliberately not committed (they contain verbatim source\n"
+            f"  text); each script regenerates its own."
+        )
+    return path
+
+
 from winnow.config import Config
 from winnow.embed import build_embedder, cosine_similarity
 
@@ -97,7 +114,7 @@ def analyse(label, texts_by_size, seconds_by_size, embedder):
 def main() -> int:
     config = Config.load(HERE.parent / "winnow.json")
     embedder = build_embedder("ollama", config.embed_model, config.ollama_host)
-    data = json.loads((HERE / "two_pass_results.json").read_text(encoding="utf-8"))
+    data = json.loads(_require_prior("two_pass_results.json", "two_pass_study.py").read_text(encoding="utf-8"))
 
     docs = {int(k): v for k, v in data["texts"]["documents"].items()}
     video = {int(k): v for k, v in data["texts"]["video"].items()}

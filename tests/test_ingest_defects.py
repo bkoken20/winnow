@@ -57,6 +57,48 @@ def build(tmp_path, llm, **overrides) -> Pipeline:
     return pipeline
 
 
+SUBJECTS = [
+    "quantisation", "attention", "batching", "tokenisation", "caching", "scheduling",
+    "embeddings", "retrieval", "sampling", "checkpointing", "sharding", "profiling",
+    "compilation", "offloading", "prefetching", "distillation", "pruning", "routing",
+    "streaming", "logging", "throttling", "warmup", "eviction", "paging", "fusion",
+    "serialisation", "validation", "telemetry", "rebalancing", "prefixing",
+    "collation", "annealing", "clipping", "masking", "pooling", "gating", "dropout",
+    "layernorm", "beamsearch", "rescoring",
+]
+
+
+def _distinct_claim(i: int) -> str:
+    """Claims that differ in VOCABULARY, not just in an index number.
+
+    The offline hashing embedder compares token bags, so "assertion 3 on topic 3" and
+    "assertion 4 on topic 4" score as near-identical and within-batch de-duplication
+    collapses them. Real embeddings would keep them apart; the fixture has to.
+    """
+    return f"{SUBJECTS[i % len(SUBJECTS)]} shifts throughput by {i * 3 + 7} percent"
+
+
+def _assert_fixture_is_actually_distinct(texts: list[str]) -> None:
+    """Fail loudly if the test embedder cannot tell the fixture claims apart.
+
+    The hashing embedder buckets tokens into 256 dimensions, so two unrelated words can
+    collide and make two claims look identical -- collapsing them, and failing the test
+    for a reason that has nothing to do with the behaviour under examination. Check the
+    premise rather than letting it fail obscurely downstream.
+    """
+    from winnow.embed import HashingEmbedder, cosine_similarity
+
+    embedder = HashingEmbedder()
+    vectors = [embedder.embed(t) for t in texts]
+    for a in range(len(vectors)):
+        for b in range(a + 1, len(vectors)):
+            similarity = cosine_similarity(vectors[a], vectors[b])
+            assert similarity < 0.93, (
+                f"fixture claims {a} and {b} collide in the test embedder "
+                f"(similarity {similarity:.3f}): {texts[a]!r} vs {texts[b]!r}"
+            )
+
+
 def material(tmp_path, text: str) -> Path:
     folder = tmp_path / "talk"
     folder.mkdir(exist_ok=True)
@@ -79,8 +121,10 @@ def test_one_long_ingest_cannot_lift_itself_over_the_corpus_minimum(tmp_path):
 
     # Comfortably inside one chunk: a block straddling the 2,000-char boundary is hard-split
     # mid-line, and the fake extractor then reports the two halves as separate claims.
-    text = "\n".join(f"assertion {i} on topic {i}" for i in range(40))
-    assert len(text) < 1_500
+    lines = [_distinct_claim(i) for i in range(40)]
+    _assert_fixture_is_actually_distinct(lines)
+    text = "\n".join(lines)
+    assert len(text) < 2_000  # one chunk: a straddling block is hard-split mid-line
     _, verdicts = pipeline.ingest(material(tmp_path, text))
 
     assert len(verdicts) == 40
@@ -110,9 +154,13 @@ def test_a_talk_is_not_judged_against_itself(tmp_path):
     text = "a speaker makes one particular point\na speaker makes one particular point."
     _, verdicts = pipeline.ingest(material(tmp_path, text))
 
-    assert len(verdicts) == 2
-    assert verdicts[1].novelty != "known", (
-        "the second mention was judged against the first, which arrived in the same talk"
+    # One point, reported once. Previously the repeat was judged against the first
+    # mention and came back `known`; now the corpus is frozen for the whole ingest, so
+    # both would read the same -- and reporting one discovery twice is noise, so the
+    # duplicate collapses instead.
+    assert len(verdicts) == 1
+    assert verdicts[0].novelty != "known", (
+        "the point was judged against the same talk it came from"
     )
     pipeline.close()
 
@@ -131,17 +179,39 @@ def test_ingest_does_not_store_near_duplicates(tmp_path):
     pipeline.close()
 
 
-def test_ingest_still_reports_a_verdict_for_every_extracted_claim(tmp_path):
-    """Suppression governs what is STORED, never what the user is told.
+def test_one_assertion_is_reported_once_however_many_passes_found_it(tmp_path):
+    """Three wordings of one point are one finding, not three.
 
-    A reader who asks about a talk should see a verdict per claim found in it, even when
-    the corpus declines to keep a reworded duplicate.
+    Multi-pass extraction reliably produces rewordings. With the corpus frozen for the
+    whole ingest they all receive the same verdict, so reporting each would present one
+    discovery as several.
     """
     pipeline = build(tmp_path, RepeatedClaimLLM())
     claims, verdicts = pipeline.ingest(material(tmp_path, "anything"))
 
-    assert len(claims) == 3
-    assert len(verdicts) == 3
+    assert len(claims) == 1
+    assert len(verdicts) == 1
+    pipeline.close()
+
+
+def test_a_claim_already_in_the_corpus_is_still_reported(tmp_path):
+    """Collapsing applies WITHIN a batch only.
+
+    A claim the corpus already holds must still be shown -- `known` is the tool's most
+    informative verdict, and silently dropping it would hide the very thing a reader is
+    asking about.
+    """
+    pipeline = build(tmp_path, RepeatedClaimLLM())
+    pipeline.ingest(material(tmp_path, "first"))          # corpus now holds the assertion
+    before = pipeline.store.count_claims("ai_tooling")
+
+    second = tmp_path / "talk2"
+    second.mkdir()
+    (second / "transcript.txt").write_text("anything", encoding="utf-8")
+    _, verdicts = pipeline.ingest(second)
+
+    assert len(verdicts) == 1, "the repeat must still be reported"
+    assert pipeline.store.count_claims("ai_tooling") == before, "but not stored again"
     pipeline.close()
 
 

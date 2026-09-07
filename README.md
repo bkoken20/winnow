@@ -164,8 +164,8 @@ model is precisely the thing you deserve to be warned about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. Fourteen behaviours the tool guarantees have been
-verified to actually fail when the behaviour is removed — see
+The suite runs offline: no model server, no network. Seventeen behaviours the tool guarantees have been
+verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence.
 

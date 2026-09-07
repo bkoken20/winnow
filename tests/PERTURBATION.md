@@ -34,3 +34,37 @@ where a test can exercise it.
 foreign key to claims, and the code wrote the verdict before inserting the claim. Every
 module was individually correct; the fault was in the ordering between them. Unit tests
 cannot see that — `tests/test_pipeline.py` exists because of it.
+
+## Round two — the cold-review fixes, and an adversarial pass over them
+
+A fix nobody attacked is not verified. Each behaviour added or repaired after the
+pre-publication review was broken again and its guarding test re-run.
+
+| # | mutation applied | result |
+|---|---|---|
+| 12 | corpus left un-frozen during ingest (a talk becomes its own evidence) | RED |
+| 13 | within-batch duplicate collapse removed (one point reported twice) | RED |
+| 14 | frame path unwired again (documented feature with no caller) | RED |
+| 15 | frames written back into the user's source folder | RED* |
+| 16 | remote `ollama_host` reported as fully local | RED |
+| 17 | unknown config keys silently dropped again | RED |
+
+\* **This one was GREEN on the first attempt** — nothing tested where frame files landed,
+so the fix was unverified. `test_ingest_writes_nothing_into_the_user_s_folder` exists
+because the perturbation found that gap, not because anyone thought of it in advance.
+
+### What the adversarial pass found in the review's own fixes
+
+Four of the five defects it surfaced were introduced by the fixes made an hour earlier:
+
+- Removing the study outputs (correct — they embedded third-party text) left **four
+  experiment scripts reading files that no longer exist**. They crashed on the first line
+  for anyone cloning the repository. They now fail with a message naming the script to run
+  first.
+- Frame extraction wrote JPEGs into the user's source folder.
+- Up to 40 vision calls per ingest, several seconds each, on the one path with no cost
+  gate — unannounced and unconfigurable. Now capped, configurable, and announced before it
+  spends the time.
+- Freezing the corpus fixed a talk being judged against itself, but made the same point
+  appear **twice as `new`** when two passes found it. One finding is now reported once.
+- The README claimed fourteen verified behaviours where this file documented eleven.

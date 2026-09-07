@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -180,17 +181,38 @@ class Pipeline:
         media = find_media_file(target)
         if media is None:
             return ""
-        try:
-            frames = extract_frames(media, target / "frames")
-        except FFmpegMissing:
-            return ""
-        if not frames:
-            return ""
-
         prompt = self.pack.render_frame_prompt()
         if not prompt:
             return ""
 
+        # Frames go to a temporary directory, never into the user's folder. Winnow reads
+        # what it is pointed at; writing JPEGs back into someone's source directory is a
+        # side effect they did not ask for, fails outright on read-only or shared storage,
+        # and leaves litter behind after an ingest.
+        with tempfile.TemporaryDirectory(prefix="winnow-frames-") as tmp:
+            try:
+                frames = extract_frames(
+                    media,
+                    Path(tmp),
+                    every_seconds=self.config.frame_every_seconds,
+                    limit=self.config.max_frames,
+                )
+            except FFmpegMissing:
+                return ""
+            if not frames:
+                return ""
+
+            # Describing frames is the most expensive thing an ingest does -- one vision
+            # call each, several seconds apiece -- and unlike indexing there is no cost
+            # gate on this path. Say so before spending it, rather than appearing to hang.
+            print(
+                f"describing {len(frames)} frames from {media.name} "
+                f"({self.config.vision_model})...",
+                flush=True,
+            )
+            return self._describe_each(frames, prompt)
+
+    def _describe_each(self, frames, prompt: str) -> str:
         described = []
         for frame in frames:
             try:
@@ -280,21 +302,28 @@ class Pipeline:
         # reliably produces rewordings of one assertion. Suppression governs what is KEPT,
         # never what the reader is told -- every extracted claim keeps the verdict decided
         # above whether or not the corpus stores it.
-        stored_vectors: list[list[float]] = []
-        stored_ids: set[str] = set()
+        kept_vectors: list[list[float]] = []
+        kept_claims, kept_verdicts = [], []
+        verdict_by_claim = {v.claim_id: v for v in verdicts}
         for claim, vector in zip(claims, vectors):
-            if self.is_near_duplicate(vector) or self._duplicates_within_batch(
-                vector, stored_vectors
-            ):
+            # Two passes over one text produce the same assertion twice. Reporting it twice
+            # is noise -- worse, with the corpus frozen both copies now read `new`, so the
+            # reader sees one discovery presented as two. Collapse within the batch.
+            if self._duplicates_within_batch(vector, kept_vectors):
                 continue
-            self.store.add_claim(claim, vector, self.judge.embedder.name)
-            stored_vectors.append(vector)
-            stored_ids.add(claim.id)
+            kept_claims.append(claim)
+            kept_vectors.append(vector)
+            if claim.id in verdict_by_claim:
+                kept_verdicts.append(verdict_by_claim[claim.id])
 
-        # Verdicts carry a foreign key to claims, so only those actually stored are written.
-        for verdict in verdicts:
-            if verdict.claim_id in stored_ids:
-                self.store.add_verdict(verdict)
+            # Claims already in the corpus keep their verdict -- `known` is informative and
+            # must still be shown -- but are not stored again.
+            if not self.is_near_duplicate(vector):
+                self.store.add_claim(claim, vector, self.judge.embedder.name)
+                if claim.id in verdict_by_claim:
+                    self.store.add_verdict(verdict_by_claim[claim.id])
+
+        claims, verdicts = kept_claims, kept_verdicts
 
         # The claims themselves are returned, not just a count, so a caller can report a
         # verdict without going back to the database for the text. That round trip is a

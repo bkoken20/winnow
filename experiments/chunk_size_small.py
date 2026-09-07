@@ -49,6 +49,23 @@ def _env_path(name: str, what: str) -> Path:
     return Path(raw)
 
 
+
+def _require_prior(filename: str, produced_by: str) -> Path:
+    """Study outputs are not committed -- they embed verbatim source text, including
+    third-party material. Scripts that build on an earlier study therefore have to say
+    plainly what to run first, rather than dying on a missing file."""
+    path = HERE / filename
+    if not path.exists():
+        raise SystemExit(
+            f"{filename} not found.\n"
+            f"  This study builds on an earlier one. Run it first:\n"
+            f"      python experiments/{produced_by}\n"
+            f"  Study outputs are deliberately not committed (they contain verbatim source\n"
+            f"  text); each script regenerates its own."
+        )
+    return path
+
+
 from winnow.config import Config
 from winnow.embed import build_embedder, cosine_similarity
 from winnow.extract import parse_claims_json, split_text
@@ -156,7 +173,7 @@ def main() -> int:
     print(" the projection caveat in CHUNK_SIZE.md)\n")
 
     # ---- PART A ---------------------------------------------------------------
-    prior = json.loads((HERE / "chunk_size_results.json").read_text(encoding="utf-8"))
+    prior = json.loads(_require_prior("chunk_size_results.json", "chunk_size_study.py").read_text(encoding="utf-8"))
     results = {}
 
     print("PART A: same three documents as the first study")

@@ -161,9 +161,11 @@ which is exactly the arrangement this tool was built under.
 `unknown`, never `new`. A blind spot is not a discovery, and a tool that confidently calls
 everything novel on day one is worse than no tool.
 
-**Every verdict records what judged it** — embedding model, backend, judge model, prompt
-version, pack version. Verdicts from different judges are not comparable, and a corpus that
-silently mixes them is worthless six months later.
+**Every verdict records what judged it** — tier, embedding model, backend, judge model,
+judge location, prompt version, pack version. Verdicts from different judges are not
+comparable, and a corpus that silently mixes them is worthless six months later. Judge
+location is the one that matters most later: it says whether the claim text was sent
+anywhere.
 
 ## Install
 
@@ -266,10 +268,12 @@ model is precisely the thing you deserve to be warned about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. Twenty-six behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. Twenty-nine behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
-not evidence.
+not evidence. Three of those twenty-nine were found by mutating the source at random rather
+than by choosing what to test, which is the only part of that file I would trust a stranger
+to believe.
 
 ## Licence
 

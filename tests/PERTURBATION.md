@@ -142,6 +142,46 @@ uncommitted fixes that were not part of the mutation. Nothing was lost — they 
 — but a perturbation must be undone by undoing the perturbation, not by resetting the file
 it lives in. Commit first, or restore from a copy.
 
+## Round six — mutation sampling, which is the first round I did not choose
+
+Every round above perturbed a behaviour I already suspected. That measures the tests I
+thought to write, not the ones I did not. So: 224 mutable sites in `winnow/*.py`
+(comparisons flipped, and/or swapped, booleans negated, integers incremented), **30 sampled
+uniformly at random** with a fixed seed, applied one at a time with the suite re-run against
+each.
+
+**14 of 30 killed.** Of the 16 survivors, most were equivalent mutants — `flush=True` made
+False, a 600-second timeout made 601, a JSON indent widened, `n=1` made `n=2` where only
+`[0]` is read. Those change nothing a test could legitimately observe, and a suite is not
+worse for ignoring them.
+
+**Three were real, and all three are now covered:**
+
+| # | mutation that survived | test added | result |
+|---|---|---|---|
+| 27 | `judge_location` dropped from the tier-1 stamp | `test_the_tier_one_stamp_records_every_field` | RED |
+| 28 | `notes_path or environment` made `and` | `test_the_config_wins_over_the_environment` | RED |
+| 29 | accepted budget converted at 61 seconds to the minute | `test_an_accepted_budget_means_exactly_that_many_minutes` | RED |
+
+\#27 is the one worth reading twice. The README calls verdict stamping one of two rules the
+tool will not bend, and `test_tier_one_records_the_judge_model` checked two of the seven
+stamped fields. Flipping the tier check on the `judge_location` line alone survived the
+entire suite — so a verdict produced by a **cloud** judge would record no location at all,
+which is the field a reader would use to work out whether their claim text ever left the
+machine. The README's own enumeration of the stamp had quietly dropped `tier` and
+`judge_location` too; a test now checks the promise lists every field the dataclass has.
+
+Two smaller ones are recorded but deliberately not fixed. `media.py` survived four mutations,
+all inside the ffmpeg path this suite states plainly that it does not cover — a declared gap
+is not a hidden one. And `pipeline.py`'s `digest_size=10` can change without any test
+noticing, which would silently invalidate every existing corpus's source ids; that wants a
+pinned golden value, and it is written here rather than fixed quietly.
+
+**What the number is worth.** 14/30 is a wide interval on 30 draws, and the survivors were
+classified by hand, by the person who wrote the tests. Read it as: the suite catches
+roughly half of arbitrary damage, the half it misses is mostly cosmetic, and sampling found
+three genuine holes in an afternoon that five rounds of choosing my own targets did not.
+
 ### Two mutations that came back GREEN, and what each meant
 
 Both were faults in the *mutation*, not gaps in the tests — worth recording, because a

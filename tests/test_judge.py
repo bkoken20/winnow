@@ -131,6 +131,93 @@ def test_tier_one_records_the_judge_model(tmp_path):
     assert verdict.evidence == "measurement"
 
 
+def test_the_tier_one_stamp_records_every_field(tmp_path):
+    """Every field, not a sample of them.
+
+    Found by mutation testing: flipping the tier check on the judge_location line alone
+    survived the entire suite, so a cloud-judged verdict could record no location at all.
+    That is the field a reader would use to work out whether their claim text was sent
+    anywhere.
+    """
+    class FakeLLM:
+        def generate(self, model, prompt, *, num_ctx, as_json=False):
+            return '{"novelty": "known", "specificity": "concrete", '\
+                   '"evidence": "measurement", "flags": [], "rationale": "seen before"}'
+
+    store = Store(tmp_path / "corpus.db")
+    embedder = HashingEmbedder()
+    config = JudgeConfig(
+        pack=PACK, min_corpus=1, judge_model="big-model",
+        judge_location="cloud", pack_version="7.7",
+    )
+    judge = Judge(store, embedder, config, llm=FakeLLM())
+    fill_corpus(store, embedder, 3)
+
+    stamp = judge.judge_claim(make_claim("a claim to judge")).judge
+
+    assert stamp.tier == 1
+    assert stamp.embed_model == embedder.name
+    assert stamp.embed_backend == embedder.backend
+    assert stamp.judge_model == "big-model"
+    assert stamp.judge_location == "cloud", (
+        "a cloud-judged verdict must say so; this is the field that records whether the "
+        "claim text left the machine"
+    )
+    assert stamp.prompt_version != ""
+    assert stamp.pack_version == "7.7"
+
+
+def test_the_tier_zero_stamp_claims_no_judge_it_did_not_use(tmp_path):
+    """The mirror. A tier-0 verdict must not carry a judge model, location or prompt."""
+    judge, store, embedder = build_judge(tmp_path, min_corpus=1)
+    fill_corpus(store, embedder, 3)
+
+    stamp = judge.judge_claim(make_claim("a claim to judge")).judge
+
+    assert stamp.tier == 0
+    assert stamp.judge_model == ""
+    assert stamp.judge_location == "", (
+        "no language model was consulted, so recording a location would misdescribe "
+        "where the verdict came from"
+    )
+    assert stamp.prompt_version == ""
+    assert stamp.embed_model == embedder.name
+
+
+def test_the_readme_lists_every_stamped_field(tmp_path):
+    """The promise enumerates the fields, so the enumeration has to be complete.
+
+    It named five of seven: `tier` and `judge_location` were missing, which is how a
+    guarantee quietly stops covering the field nobody listed.
+    """
+    import dataclasses
+    from pathlib import Path
+
+    import re
+
+    readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
+    # Collapse wrapping: the promise spans lines, so a phrase can be split across one.
+    promise = re.sub(r"\s+", " ", readme.split("Every verdict records what judged it")[1][:400])
+
+    english = {
+        "tier": "tier",
+        "embed_model": "embedding model",
+        "embed_backend": "backend",
+        "judge_model": "judge model",
+        "judge_location": "judge location",
+        "prompt_version": "prompt version",
+        "pack_version": "pack version",
+    }
+    fields = [f.name for f in dataclasses.fields(JudgeStamp)]
+    assert set(fields) == set(english), f"JudgeStamp gained or lost a field: {fields}"
+
+    missing = [english[f] for f in fields if english[f] not in promise.lower()]
+    assert not missing, (
+        f"the README promises the stamp records what judged a verdict but does not "
+        f"list: {missing}"
+    )
+
+
 def test_tier_one_falls_back_when_judge_returns_garbage(tmp_path):
     class BrokenLLM:
         def generate(self, model, prompt, *, num_ctx, as_json=False):

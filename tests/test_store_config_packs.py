@@ -116,11 +116,20 @@ def test_ollama_embedder_does_not_silently_fall_back():
 # -- config and privacy --------------------------------------------------------
 
 
-def test_default_config_is_fully_local():
+def test_default_config_keeps_your_material_local():
+    """Asserts the guarantee, not the wording.
+
+    This pinned the literal string "FULLY LOCAL", which is how an unqualified "Nothing
+    leaves this machine" survived `winnow ingest <url>` learning to fetch captions. What
+    the default must guarantee is that the user's OWN material is not transmitted; the
+    statement is now free to name the one thing that does reach the network.
+    """
     config = Config()
+    statement = config.egress_statement()
     assert config.is_fully_local
-    assert "FULLY LOCAL" in config.egress_statement()
-    assert "never transmitted" in config.egress_statement()
+    assert not statement.startswith("NOT FULLY LOCAL")
+    assert "never transmitted" in statement
+    assert "yt-dlp" in statement, "the one network call the default DOES make must be named"
 
 
 def test_cloud_judge_produces_an_explicit_egress_warning():

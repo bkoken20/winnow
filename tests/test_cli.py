@@ -147,7 +147,9 @@ def test_index_refuses_a_long_run_and_exits_nonzero(offline_cli, tmp_path, monke
 def test_status_reports_privacy_and_corpus(offline_cli, capsys):
     assert cli.main(["--config", str(offline_cli), "status"]) == 0
     output = capsys.readouterr().out
-    assert "FULLY LOCAL" in output
+    assert "PRIVACY:" in output
+    assert "never transmitted" in output
+    assert "NOT FULLY LOCAL" not in output
     assert "0 claims" in output
     assert "below the" in output  # the coverage warning
 

@@ -139,12 +139,21 @@ class Config:
         )
 
     def egress_statement(self) -> str:
-        """Exactly what leaves this machine under the current settings."""
+        """Exactly what leaves this machine under the current settings.
+
+        The README points at `winnow status` as the authority on this question, so this
+        string has to be true rather than reassuring. It said "Nothing leaves this machine",
+        which was written when the only network code was the Ollama client and stayed there
+        after `winnow ingest <url>` learned to fetch captions.
+        """
         if self.is_fully_local:
             return (
-                "FULLY LOCAL. Nothing leaves this machine: extraction, embeddings and any "
-                f"judging run against Ollama at {self.ollama_host}. Your notes and the "
-                "claims extracted from them are never transmitted."
+                "LOCAL, except fetching. Extraction, embeddings and any judging run "
+                f"against Ollama at {self.ollama_host}; your notes, transcripts and the "
+                "claims extracted from them are never transmitted. The one exception: "
+                "`winnow ingest <url>` runs yt-dlp, which contacts that site. It prints "
+                "the exact command first, and sends nothing of yours beyond the link you "
+                "gave it."
             )
 
         reasons = []

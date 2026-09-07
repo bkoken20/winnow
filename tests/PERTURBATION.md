@@ -269,6 +269,57 @@ The other three root files were clean: `LICENSE` is unmodified MIT, `.gitignore`
 generated artefact (verified with `git check-ignore` in round four), and `requirements.txt`
 is now the thing `pyproject.toml` agrees with rather than contradicts.
 
+## Round ten — one class of defect, across every file at once
+
+The first round organised by DEFECT rather than by folder, and the reason is worth recording:
+the README was read top to bottom, declared checked, and then amended in six later commits.
+Five of those six defects were claims about OTHER files — a figure whose table lives in
+`experiments/`, a field list that lives in `models.py`, a count that lives in this file.
+**Reading a document in isolation can find internal inconsistency and nothing else.** It can
+never establish that a claim about code is true, so "I read it" was never capable of
+producing "it is correct", and reading it first guaranteed the rest would surface later.
+
+So instead of reading anything again, one question was asked of every file: *does each
+number appear in the record that exists to hold numbers?*
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 43 | a quantity in the README with no entry in the record | `test_every_measured_quantity_in_the_readme_is_recorded` | RED |
+| 44 | the same, in `docs/` | `test_every_measured_quantity_in_the_docs_is_recorded` | RED |
+| 45 | a projected figure quoted with no mark of a projection | `test_a_projection_is_never_quoted_as_a_measurement` | RED |
+
+**What the question found.** "337 files, about 3.5 hours" was in the Quickstart, telling a
+reader whether to commit to an overnight job, and `docs/DOMAIN_PACKS.md` called it
+*Measured:*. It was arithmetic: a file count times a per-page ESTIMATE, relabelled. The one
+real indexing measurement — 80 files in 479s — implies about 34 minutes for 337, six times
+smaller. Withdrawn, with the withdrawal recorded so the absence is visible.
+
+Then the same shape again in `docs/`: `TWO_PASS.md` states plainly that its index hours are
+projected and not a measured run, and those hours were quoted in five other files with no
+caveat at all. A caveat written once stays where it was written. It travels now, and a test
+makes it travel.
+
+**The mechanism, three times over.** The figures check listed THREE numbers by hand and
+called itself a spot-check; a spot-check of three cannot catch the fourth. That is the third
+hardcoded list in this repository to *be* the defect, after the link check that named four
+documents while five escaped and the number-word map that stopped at thirty. Every one of
+them now derives its list instead of holding one.
+
+### Attacking round ten found two faults in round ten's own checks
+
+- **Recording a withdrawal made the withdrawn figure pass.** The block that withdraws "337
+  files, about 3.5 hours" quotes it in order to withdraw it, so the number was present in
+  the record and the check went green on re-adding it to the README. Blocks marked NOT
+  MEASURED are excluded from the haystack now.
+- **The projection check passed for the wrong reason at two of four sites.** It examined the
+  enclosing paragraph, and a markdown table is one paragraph — so "The projection accounts
+  for it" in an unrelated row satisfied a different row, as did "NOT measured", written
+  about frame sampling, for a claim about index hours in `config.py`. It checks a
+  240-character window around each occurrence now. Re-attacked: three of four red, and the
+  fourth survives correctly because that caveat genuinely sits two lines below its figure.
+
+Neither would have been found by running the check. Both were found by trying to defeat it.
+
 ### Two mutations that came back GREEN, and what each meant
 
 Both were faults in the *mutation*, not gaps in the tests — worth recording, because a

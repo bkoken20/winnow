@@ -19,3 +19,4 @@ experiments/correctness_judge_verdicts.json
 *.egg-info/
 build/
 dist/
+winnow-cache/

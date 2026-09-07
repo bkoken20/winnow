@@ -3,7 +3,7 @@
     winnow status                     what is configured, what is in the corpus, what leaves the box
     winnow init                       write a starter winnow.json
     winnow index <folder>             build the corpus from a folder of notes
-    winnow ingest <path>              judge new material against the corpus
+    winnow ingest <url|path>          judge new material against the corpus
     winnow rejudge                    re-judge every claim against the corpus as it stands
     winnow packs                      list available domain packs
 """
@@ -19,6 +19,7 @@ from pathlib import Path
 from .config import CONFIG_FILENAME, Config
 from .cost import RunRefused
 from .llm import OllamaError
+from .acquire import AcquisitionFailed, YtDlpMissing, cache_dir_for, fetch, looks_like_url
 from .pipeline import CorpusEmbeddingMismatch
 from .models import NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
 from .packs import InvalidPack, available_packs, find_pack
@@ -50,6 +51,12 @@ def _run(func, args) -> int:
     except InvalidPack as exc:
         print(f"invalid pack: {exc}", file=sys.stderr)
         return 7
+    except YtDlpMissing as exc:
+        print(str(exc), file=sys.stderr)
+        return 8
+    except AcquisitionFailed as exc:
+        print(f"could not fetch: {exc}", file=sys.stderr)
+        return 9
     except RunRefused as exc:
         print(str(exc), file=sys.stderr)
         return 3
@@ -193,10 +200,25 @@ def cmd_ingest(args) -> int:
     from .pipeline import Pipeline
 
     config = Config.load(args.config)
-    target = Path(args.path)
-    if not target.exists():
-        print(f"no such file or folder: {target}", file=sys.stderr)
-        return 2
+
+    if looks_like_url(args.path):
+        # A link is the common case: fetch its captions, then treat the result exactly as
+        # if the user had produced the folder themselves. Cached per URL.
+        target = cache_dir_for(args.path, Path(config.cache_path))
+        if target.exists() and any(target.iterdir()) and not args.refetch:
+            print(f"using cached material in {target}")
+        else:
+            fetch(
+                args.path,
+                target,
+                languages=config.caption_languages,
+                with_video=args.with_video,
+            )
+    else:
+        target = Path(args.path)
+        if not target.exists():
+            print(f"no such file or folder: {target}", file=sys.stderr)
+            return 2
 
     pipeline = Pipeline.build(config)
     try:
@@ -267,8 +289,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_index.set_defaults(func=cmd_index)
 
-    p_ingest = sub.add_parser("ingest", help="judge new material (transcript, media, or folder)")
-    p_ingest.add_argument("path")
+    p_ingest = sub.add_parser(
+        "ingest", help="judge new material: a URL, a transcript, or a folder"
+    )
+    p_ingest.add_argument("path", help="a video URL, or a path to a transcript or folder")
+    p_ingest.add_argument(
+        "--with-video", action="store_true",
+        help="also download the video, so frames can be described (much larger)",
+    )
+    p_ingest.add_argument(
+        "--refetch", action="store_true", help="ignore cached material for this URL"
+    )
     p_ingest.add_argument("--new-only", action="store_true", help="show only novel claims")
     p_ingest.set_defaults(func=cmd_ingest)
 

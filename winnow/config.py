@@ -30,6 +30,11 @@ class Config:
     pack: str = "ai_tooling"
     corpus_path: str = "winnow.db"
     notes_path: str = ""
+    # Where material fetched from a URL is kept. Cached per URL, so re-running a link does
+    # not re-download it, and so you can see what was fetched.
+    cache_path: str = "winnow-cache"
+    # Caption languages passed to yt-dlp when fetching from a URL.
+    caption_languages: str = "en.*"
 
     ollama_host: str = "http://localhost:11434"
     text_model: str = DEFAULT_TEXT_MODEL

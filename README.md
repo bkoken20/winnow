@@ -7,10 +7,19 @@ out of new material, compares them against a corpus of what is already known, an
 which few are genuinely new — instead of handing you another summary of things you knew last
 year.
 
-**What it reads:** a transcript or subtitle file (`.txt` `.md` `.vtt` `.srt`), or a folder
-containing one. Video and audio files are used only for sampling frames, and only when a
-transcript sits beside them. It does not transcribe, and it does not read PDFs — converting
-those is your job, and [docs/ACQUISITION.md](docs/ACQUISITION.md) says how.
+**What it takes:** a video URL, or a transcript, or a folder holding one.
+
+```bash
+winnow ingest https://youtu.be/SOME_VIDEO --new-only
+```
+
+Captions are fetched with yt-dlp — which you install, and which Winnow never installs for
+you — and the exact command is printed before it runs. Nothing is downloaded silently, and
+video itself is only fetched with `--with-video`, for packs that describe frames.
+
+It does not transcribe: a video with no captions is a stop, not a silent empty result. It
+does not read PDFs. [docs/ACQUISITION.md](docs/ACQUISITION.md) covers both, including
+producing a transcript yourself with faster-whisper.
 
 It runs locally. With no configuration at all, nothing leaves your machine.
 

@@ -18,6 +18,8 @@ the end.
 | `packs_root` | *(repo's `packs/`)* | Where to look for packs. Point it outside the repo to keep private packs unpublished. |
 | `corpus_path` | `winnow.db` | The SQLite corpus file. One file; back it up by copying it. |
 | `notes_path` | *(unset)* | Default folder for `winnow index`. Also settable via the `WINNOW_NOTES` environment variable. |
+| `cache_path` | `winnow-cache` | Where material fetched from a URL is kept, one folder per URL. Re-running the same link uses the cache instead of downloading again. |
+| `caption_languages` | `en.*` | Caption languages requested from yt-dlp when fetching a URL. |
 
 ## Models
 
@@ -73,6 +75,8 @@ is `known`, `0.75`–`0.90` is `variant`, below is `new`.
 | `--config PATH` | all | Use a different `winnow.json`. |
 | `--accept-minutes N` | `index` | Accept a projected run of N minutes. Winnow times one real file, projects the whole run by text volume **plus de-duplication scanning**, shows you the number, and refuses runs over ~2 minutes until you accept a budget that covers it. There is no flag that skips the measurement, and acceptance does not silence the number. |
 | `--new-only` | `ingest` | Print only claims judged `new`. |
+| `--with-video` | `ingest` | Also download the video so frames can be described. Much larger; captions alone are enough unless the pack uses frames. |
+| `--refetch` | `ingest` | Ignore cached material for this URL and fetch it again. |
 | `--force` | `init` | Replace an existing config with defaults. Without it, `init` refuses rather than overwriting a file you already own. |
 
 ## Environment

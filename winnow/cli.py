@@ -21,7 +21,7 @@ from .cost import RunRefused
 from .llm import OllamaError
 from .pipeline import CorpusEmbeddingMismatch
 from .models import NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
-from .packs import available_packs, find_pack
+from .packs import InvalidPack, available_packs, find_pack
 
 SYMBOL = {
     NOVELTY_NEW: "NEW    ",
@@ -47,6 +47,9 @@ def _run(func, args) -> int:
     except CorpusEmbeddingMismatch as exc:
         print(f"corpus/model mismatch: {exc}", file=sys.stderr)
         return 6
+    except InvalidPack as exc:
+        print(f"invalid pack: {exc}", file=sys.stderr)
+        return 7
     except RunRefused as exc:
         print(str(exc), file=sys.stderr)
         return 3

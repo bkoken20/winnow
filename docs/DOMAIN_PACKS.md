@@ -144,9 +144,12 @@ python scripts/fetch_starter_corpus.py --pack your_domain --dest <folder> --limi
 trying your pack gets a working corpus in minutes instead of hours. Drop it for the full
 set. Check the licence of anything you list.
 
-**Curate this list; do not bulk-list.** Measured: 337 documentation pages took about 3.5
-hours to index with a 14B model — roughly 37 seconds a page, so a thousand pages is most of
-half a day. The first version of the shipped pack listed several large documentation
+**Curate this list; do not bulk-list.** Indexing is one model call per chunk, so cost
+scales with total text rather than with file count. The one measurement in this repository
+is the quickstart's bounded run — 80 curated pages in 8 minutes, 6 seconds a page — and
+larger pages cost proportionally more. A list of a thousand documentation pages is a job to
+project before starting, not to start and see; `winnow index` does exactly that and refuses
+until you accept the number. The first version of the shipped pack listed several large documentation
 repositories and produced 1,293 files — most of them API reference, which is high volume
 and low claim density. "This function accepts these arguments" is not a claim anyone needs
 a novelty verdict on, and it costs the same to extract as one that matters.

@@ -72,9 +72,10 @@ You also need [Ollama](https://ollama.com) running with three models pulled — 
 [Install](#install).
 
 `--limit 80` keeps step 1 to eight minutes and yields ~110 claims, past the 25 needed before
-Winnow will call anything novel. Drop the limit for a real corpus and it becomes an
-overnight job: the full starter set is 337 files and about 3.5 hours. Winnow measures and
-shows you that before it starts.
+Winnow will call anything novel — that part is measured. Drop the limit and the run is much
+longer, on material whose size this project has not measured end to end; Winnow indexes one
+file, projects the whole run from it, and shows you the number before it starts, so you find
+out in seconds rather than from a figure quoted here.
 
 ## Why this rather than a summarizer
 
@@ -208,10 +209,10 @@ python scripts/fetch_starter_corpus.py --pack ai_tooling --dest ./notes --limit 
 winnow index ./notes --accept-minutes 15
 ```
 
-Drop `--limit` for the full starter set — 337 files, about 3.5 hours. Long runs are measured
-before they start: Winnow indexes one file, times it, projects the whole run including
-de-duplication, shows you the number, and will not proceed until you accept a budget that
-covers it.
+Drop `--limit` for the full starter set, which is considerably longer — the projection
+will tell you how much. Long runs are measured before they start: Winnow indexes one file,
+times it, projects the whole run including de-duplication, shows you the number, and will
+not proceed until you accept a budget that covers it.
 
 **Then judge something:**
 

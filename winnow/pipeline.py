@@ -21,7 +21,7 @@ from .media import (
     find_media_file,
     transcript_for,
 )
-from .models import Claim, Source, Verdict
+from .models import NOVELTY_KNOWN, Claim, Source, Verdict
 from .packs import Pack, find_pack
 from .store import Store
 
@@ -288,6 +288,38 @@ class Pipeline:
             described.append(f"[{frame.seconds}s] {text}")
         return "\n".join(described)
 
+    def _already_known(self, claim: Claim, vector: list[float]) -> Verdict | None:
+        """A claim already stored is known by definition. `None` if it is not stored.
+
+        Found by running the tool rather than reading it: a video already in the corpus,
+        re-ingested, reported 60 of its 74 claims as NEW.
+
+        The cause is a correct rule in the wrong place. `similarity_search` excludes the
+        claim being judged, because a claim is not evidence about itself -- right, and
+        necessary for `rejudge`. But re-ingesting produces the SAME claim ids (a hash of
+        pack, source and text), so the second time round each claim's nearest neighbour is
+        its own stored copy, and excluding it leaves only weaker matches. The tool then
+        announces as a discovery something already in the corpus.
+
+        The corpus IS what the reader already knows. If the claim is in it, the answer is
+        known, and no similarity threshold should be consulted to decide otherwise.
+        """
+        if not self.store.claim_exists(claim.id):
+            return None
+        neighbours = self.store.similarity_search(
+            self.pack.name, vector, top_k=self.judge.config.top_k,
+            exclude_claim_id=claim.id,
+        )
+        return Verdict(
+            claim_id=claim.id,
+            novelty=NOVELTY_KNOWN,
+            similarity=1.0,
+            neighbours=neighbours,
+            coverage=self.judge.coverage(claim.id),
+            judge=self.judge.stamp(),
+            rationale="this claim is already in your corpus -- the material has been ingested before",
+        )
+
     def ingest(
         self, target: Path, judge_claims: bool = True
     ) -> tuple[list[Claim], list[Verdict]]:
@@ -356,7 +388,10 @@ class Pipeline:
         verdicts: list[Verdict] = []
         vectors = [self.judge.embedder.embed(c.text) for c in claims]
         if judge_claims:
-            verdicts = [self.judge.judge_claim(c, v) for c, v in zip(claims, vectors)]
+            verdicts = [
+                self._already_known(c, v) or self.judge.judge_claim(c, v)
+                for c, v in zip(claims, vectors)
+            ]
 
         # PHASE 2 -- store. Near-duplicate suppression belongs here as much as on the
         # indexing path, and more so: multi-pass extraction is the default for ingest and

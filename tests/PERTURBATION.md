@@ -320,6 +320,44 @@ them now derives its list instead of holding one.
 
 Neither would have been found by running the check. Both were found by trying to defeat it.
 
+## Round eleven — running it against real models, which reading never substituted for
+
+Ten rounds of reading, 321 offline tests, a clean-clone check, and the tool had not been run
+end to end against a real model since the code started changing. The suite is entirely
+stubbed: it proves the stubs are satisfied, not that an ingest works.
+
+One real run — cached video, 383-claim corpus, real Ollama, 5 minutes — and:
+
+**60 of 74 claims from a video ALREADY IN THE CORPUS came back `NEW`.**
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 46 | re-ingested material judged without regard to being stored | `test_reingesting_the_same_material_does_not_report_it_as_new` | RED (30/30) |
+| 47 | the verdict not saying why it is known | `test_a_claim_already_in_the_corpus_says_so` | RED |
+| 48 | everything forced to `known` | `test_genuinely_new_material_is_still_new` | guard, green throughout |
+
+**The cause is a correct rule in the wrong place.** `similarity_search` excludes the claim
+being judged, because a claim is not evidence about itself — right, and necessary for
+`rejudge`. But re-ingesting produces the SAME claim ids (a hash of pack, source and text), so
+the second time round each claim's nearest neighbour is its own stored copy, and excluding it
+leaves only weaker matches. The tool then announced as a discovery something it had already
+read. The corpus IS what the reader knows; if a claim is in it, no threshold should be
+consulted to decide otherwise.
+
+Verified on the same real run that exposed it: 60 new / 12 variant / 2 known became 0 new /
+6 variant / 62 known.
+
+### The fixture masked the defect it was written for
+
+The first version of the red test PASSED. It generated thirty variations of one sentence, and
+under the hashing embedder those score highly against each other — so a sibling stood in for
+the excluded self and the verdict read `known` for the wrong reason. The real corpus holds
+mutually DISSIMILAR claims, which is exactly the condition that produces the fault. Rewritten
+with unrelated subjects: 30 of 30 red.
+
+**A fixture that cannot reproduce the defect is a test that cannot fail**, and it looked like
+a passing grade for the code.
+
 ### Two mutations that came back GREEN, and what each meant
 
 Both were faults in the *mutation*, not gaps in the tests — worth recording, because a

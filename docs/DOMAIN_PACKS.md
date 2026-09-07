@@ -149,10 +149,10 @@ scales with total text rather than with file count. The one measurement in this 
 is the quickstart's bounded run — 80 curated pages in 8 minutes, 6 seconds a page — and
 larger pages cost proportionally more. A list of a thousand documentation pages is a job to
 project before starting, not to start and see; `winnow index` does exactly that and refuses
-until you accept the number. The first version of the shipped pack listed several large documentation
-repositories and produced 1,293 files — most of them API reference, which is high volume
-and low claim density. "This function accepts these arguments" is not a claim anyone needs
-a novelty verdict on, and it costs the same to extract as one that matters.
+until you accept the number. An early version of the shipped pack listed several large
+documentation repositories wholesale, and most of what came back was API reference: high
+volume, low claim density. "This function accepts these arguments" is not something anyone
+needs a novelty verdict on, and it costs exactly as much to extract as a claim that matters.
 
 Prefer a few hundred claim-dense pages over thousands of reference pages. A good corpus is
 selective, and `winnow index` will show you the projected cost before committing either way.

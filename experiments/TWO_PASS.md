@@ -82,7 +82,7 @@ of them against a union of 635. Right in kind, negligible in volume.
 
 Extraction now takes a list of chunk sizes. The second pass is **on for `ingest` and off for
 `index`**, because the cost asymmetry is stark: judging one 25-minute talk costs 205s instead
-of 101s, while indexing the 7.5 MB corpus below costs 26 hours instead of 12.
+of 101s, while indexing the 7.5 MB corpus below is projected at 26 hours instead of 12.
 Both are configurable (`ingest_extra_passes`, `index_extra_passes`; an empty list disables).
 
 Two passes over one text produce genuine rewordings of the same assertion — 19% of the
@@ -138,7 +138,7 @@ still not flattened.
 | | 1 pass | 2 passes | 3 passes | third pass adds |
 |---|---:|---:|---:|---:|
 | ingest — one 25-minute talk | 1.7 min | 3.4 min | 4.5 min | **+66 seconds** |
-| index — a 7.5 MB corpus | 11.6 h | 26.3 h | 34.8 h | **+8.5 hours** |
+| index — a 7.5 MB corpus *(projected)* | 11.6 h | 26.3 h | 34.8 h | **+8.5 hours** |
 
 The ingest row is measured. The index row is projected from measured throughput
 (0.142 / 0.180 / 0.246 KB/s at 1k / 2k / 4k) and is **not** a measured run.

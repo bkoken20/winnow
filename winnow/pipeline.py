@@ -327,7 +327,8 @@ class Pipeline:
         # Judging one item is a matter of minutes, so it runs the thorough pass list even
         # when indexing does not: three passes take a 25-minute talk from 39% coverage to
         # 92% for about three extra minutes, while the same choice on a 7.5 MB corpus is
-        # 11.6 hours against 34.8 (experiments/TWO_PASS.md).
+        # projected at 11.6 hours against 34.8 -- a projection, not a timed run
+        # (experiments/TWO_PASS.md).
         extractor = replace(
             self.extractor,
             extra_passes=tuple(self.config.ingest_extra_passes),

@@ -93,5 +93,24 @@
     "what_was_claimed": "337 files, about 3.5 hours -- quoted in the README and, as 'Measured:', in docs/DOMAIN_PACKS.md",
     "why_withdrawn": "The hours were derived by multiplying a file count by a per-page ESTIMATE of 30-40 seconds, then presented as a measurement. The only measured indexing run here is the quickstart's 80 files in 479s (6.0 s/file), which extrapolates to about 34 minutes for 337 -- six times smaller. Both cannot be right.",
     "how": "not measured: it needs a full fetch and a full index, neither of which has been run here. The tool's own cost gate answers this question per-machine, which is why no figure is quoted in its place."
+  },
+  "index_cost_by_passes": {
+    "status": "PROJECTED -- not a measured run",
+    "corpus": "7.5 MB of text",
+    "hours_by_passes": {
+      "1": 11.6,
+      "2": 26.3,
+      "3": 34.8
+    },
+    "figures": [
+      "11.6",
+      "26.3",
+      "34.8",
+      "7.5 MB",
+      "twelve hours",
+      "thirty-five hours"
+    ],
+    "basis": "measured extraction throughput of 0.142 / 0.180 / 0.246 KB/s at chunk sizes 1k / 2k / 4k, scaled by corpus size",
+    "how": "arithmetic over measured throughput. No 7.5 MB corpus has been indexed end to end here, so these are the right order of magnitude and not a result. Anywhere they are quoted, the word 'projected' has to appear with them."
   }
 }

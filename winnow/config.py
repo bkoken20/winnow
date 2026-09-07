@@ -60,7 +60,8 @@ class Config:
     #   +1,000 +4,000            90%  41.8 min      92%  4.5 min
     #
     # On for ingest, where the third pass costs about a minute. Off for indexing, where the
-    # same choice is 11.6 hours against 34.8 on a 7.5 MB corpus. Empty list disables.
+    # same choice is projected at 11.6 hours against 34.8 on a 7.5 MB corpus -- projected
+    # from measured throughput, not a timed run. Empty list disables.
     ingest_extra_passes: list[int] = field(default_factory=lambda: [1000, 4000])
     index_extra_passes: list[int] = field(default_factory=list)
     duplicate_threshold: float = 0.93

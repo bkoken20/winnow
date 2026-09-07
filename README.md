@@ -224,8 +224,9 @@ winnow ingest ./talk/ --new-only                       # or a folder you already
 Judging reads the material three times, at three different chunk sizes, by default. That sounds
 wasteful and is not: different chunk boundaries put different sentences beside each other, so
 later passes find claims the first missed — measured at 39% coverage for one pass against
-92% for three, on a 25-minute talk, for about three extra minutes. Corpus indexing leaves it off, because
-there the same choice is the difference between twelve hours and thirty-five hours
+92% for three, on a 25-minute talk, for about three extra minutes. Corpus indexing leaves it
+off, because there the same choice is projected to be the difference between twelve hours
+and thirty-five hours — projected from measured throughput, not a run anyone has timed
 ([experiments/TWO_PASS.md](experiments/TWO_PASS.md)).
 
 **As the corpus grows**, claims judged "new" when it was thin may turn out to be

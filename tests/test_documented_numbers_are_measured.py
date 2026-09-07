@@ -14,6 +14,7 @@ re-running the measurement, and the file says how each was taken so it can be.
 """
 
 import json
+import pathlib
 import re
 from pathlib import Path
 
@@ -110,6 +111,23 @@ def _quantities_in(text: str) -> set[str]:
     return found
 
 
+def _live_record() -> str:
+    """The recorded figures, as searchable text.
+
+    Commas are stripped because prose writes "10,000 claims" and the record writes the same
+    thing -- the extractor normalises one side, so it has to normalise the other. That
+    mismatch reported a recorded figure as missing.
+
+    Blocks marked NOT MEASURED are excluded: such a block quotes the withdrawn figure in
+    order to withdraw it, which would otherwise make the withdrawn number pass this check.
+    """
+    live = {
+        key: block for key, block in MEASUREMENTS.items()
+        if not (isinstance(block, dict) and "NOT MEASURED" in str(block.get("status", "")))
+    }
+    return json.dumps(live).replace(",", "")
+
+
 def test_every_measured_quantity_in_the_readme_is_recorded():
     """Extracted, not enumerated.
 
@@ -123,11 +141,7 @@ def test_every_measured_quantity_in_the_readme_is_recorded():
     # that figure in order to say so, which would otherwise make the withdrawn number pass
     # this very check -- found by re-adding "337 files, about 3.5 hours" to the README after
     # the withdrawal was recorded, and watching it sail through.
-    live = {
-        key: block for key, block in MEASUREMENTS.items()
-        if not (isinstance(block, dict) and "NOT MEASURED" in str(block.get("status", "")))
-    }
-    recorded = json.dumps(live)
+    recorded = _live_record()
     missing = sorted(q for q in _quantities_in(README) if q not in recorded)
     assert not missing, (
         f"quantities quoted in the README with no entry in MEASUREMENTS.json: {missing}. "
@@ -147,4 +161,80 @@ def test_the_caveat_survives_in_the_readme():
     """A measured number without its conditions invites being read as a specification."""
     assert re.search(r"12\s*GB consumer GPU|consumer GPU", README), (
         "the README should say what hardware the figure came from"
+    )
+
+
+def _tracked_docs() -> list[pathlib.Path]:
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "ls-files", "*.md", "*.py"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.split()
+    assert len(out) > 20, f"expected a substantial listing, got {out}"
+    return [ROOT / rel for rel in out]
+
+
+def test_every_measured_quantity_in_the_docs_is_recorded():
+    """The same question as the README test, asked of docs/ as well.
+
+    docs/ carried two unrecorded figures while the README carried none, because the check
+    only ever looked at the README.
+    """
+    recorded = _live_record()
+    missing = {}
+    for path in sorted((ROOT / "docs").glob("*.md")):
+        gap = sorted(q for q in _quantities_in(path.read_text(encoding="utf-8"))
+                     if q not in recorded)
+        if gap:
+            missing[path.name] = gap
+    assert not missing, f"quantities in docs/ with no entry in MEASUREMENTS.json: {missing}"
+
+
+def _projected_figures() -> dict[str, str]:
+    """Figures recorded as PROJECTIONS rather than measured runs, as {figure: block name}."""
+    out = {}
+    for key, block in MEASUREMENTS.items():
+        if not isinstance(block, dict):
+            continue
+        if "PROJECTED" not in str(block.get("status", "")).upper():
+            continue
+        for figure in block.get("figures", []):
+            out[str(figure)] = key
+    return out
+
+
+def test_a_projection_is_never_quoted_as_a_measurement():
+    """Wherever a projected figure appears, the paragraph around it must say so.
+
+    TWO_PASS.md states that its index hours are projected from throughput and are not a
+    measured run. The same hours were quoted in five other files with no caveat, where they
+    read as a measurement -- which is the whole reason the caveat was written.
+    """
+    projected = _projected_figures()
+    assert projected, "no projected figures recorded; this check would pass vacuously"
+
+    marks = ("project", "not a measured", "not measured", "extrapolat", "estimate")
+    offenders = []
+    for path in _tracked_docs():
+        if path.name == "MEASUREMENTS.json":
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        # A WINDOW around each occurrence, not the enclosing paragraph. Paragraph
+        # granularity passed for the wrong reason at two of four perturbed sites: a markdown
+        # table is one block, so "The projection accounts for it" in an unrelated row
+        # satisfied a different row, and config.py's dataclass comments are one block, so
+        # "NOT measured" written about frame sampling satisfied a claim about index hours.
+        for figure in projected:
+            start = 0
+            while (index := text.find(figure, start)) != -1:
+                start = index + len(figure)
+                window = text[max(0, index - 240):index + 240].lower()
+                if not any(mark in window for mark in marks):
+                    rel = path.relative_to(ROOT).as_posix()
+                    line = text.count("\n", 0, index) + 1
+                    offenders.append(
+                        f"{rel}:{line}: {figure!r} quoted with no mark of a projection"
+                    )
+    assert not offenders, (
+        "projected figures presented as measurements:\n  " + "\n  ".join(sorted(set(offenders)))
     )

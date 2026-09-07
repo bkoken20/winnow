@@ -209,7 +209,7 @@ def main() -> int:
         encoding="utf-8",
     )
     print(f"\nblind sample for human grading: {HERE / 'correctness_blind_sample.json'}")
-    print(f"(judge verdicts for the same sample held separately, for comparison after)")
+    print("(judge verdicts for the same sample held separately, for comparison after)")
     return 0
 
 

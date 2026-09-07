@@ -21,7 +21,7 @@ from .media import (
     find_media_file,
     transcript_for,
 )
-from .models import Source, Verdict
+from .models import Claim, Source, Verdict
 from .packs import Pack, find_pack
 from .store import Store
 
@@ -238,7 +238,7 @@ class Pipeline:
 
     def ingest(
         self, target: Path, judge_claims: bool = True
-    ) -> tuple[list["Claim"], list[Verdict]]:
+    ) -> tuple[list[Claim], list[Verdict]]:
         """Process one piece of material: transcript -> claims -> verdicts.
 
         Never acquires anything. `target` is a transcript file, a media file, or a folder
@@ -344,7 +344,6 @@ class Pipeline:
         rather than a constraint.
         """
         verdicts: list[Verdict] = []
-        from .models import Claim  # local import keeps the module graph shallow
 
         for row in list(self.store.iter_claims(self.pack.name)):
             claim = Claim(

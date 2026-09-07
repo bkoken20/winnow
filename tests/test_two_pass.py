@@ -16,7 +16,6 @@ from pathlib import Path
 
 from winnow.config import Config
 from winnow.extract import Extractor
-from winnow.models import NOVELTY_KNOWN
 from winnow.packs import Pack
 from winnow.pipeline import Pipeline
 

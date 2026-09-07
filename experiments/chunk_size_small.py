@@ -89,9 +89,10 @@ def _largest_docs(folder: Path, count: int = 3) -> list[str]:
     files = sorted(folder.glob("*.md"), key=lambda p: p.stat().st_size, reverse=True)
     if len(files) < count:
         raise SystemExit(
-            f"{folder} holds {len(files)} markdown files; this study needs at least {count}.
-"
-            f"  Populate it first:  python scripts/fetch_starter_corpus.py --dest {folder}"
+            f"{folder} holds {len(files)} markdown files; "
+            f"this study needs at least {count}.\n"
+            f"  Populate it first:  "
+            f"python scripts/fetch_starter_corpus.py --dest {folder}"
         )
     return [f.name for f in files[:count]]
 VIDEO = _env_path("WINNOW_TRANSCRIPT", "a plain-text transcript file")

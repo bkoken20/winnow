@@ -8,7 +8,7 @@ import pytest
 from winnow.config import Config
 from winnow.embed import HashingEmbedder, build_embedder, cosine_similarity
 from winnow.models import Claim, Coverage, JudgeStamp, Neighbour, Source, Verdict
-from winnow.packs import find_pack, load_pack
+from winnow.packs import find_pack
 from winnow.store import Store
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

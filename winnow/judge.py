@@ -206,6 +206,15 @@ class Judge:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
+            parsed = None
+
+        # `["new"]`, `"new"`, `42` and `null` are all VALID JSON, so they sail past the
+        # decode error above and used to reach `parsed.get` -- which lists and strings do
+        # not have. That raised AttributeError, which the CLI does not catch, so a judge
+        # answering in the wrong shape produced a traceback after every claim had already
+        # been extracted. The fallback exists for exactly this kind of output; it just has
+        # to recognise the cases that happen to parse.
+        if not isinstance(parsed, dict):
             # Fall back to the tier-0 answer rather than inventing one, and say so.
             return Verdict(
                 claim_id=claim.id,
@@ -214,7 +223,7 @@ class Judge:
                 neighbours=neighbours,
                 coverage=coverage,
                 judge=self.stamp(),
-                rationale="judge model returned unparseable output; fell back to similarity",
+                rationale="judge model returned unusable output; fell back to similarity",
             )
 
         novelty = parsed.get("novelty", fallback_novelty)
@@ -230,6 +239,22 @@ class Judge:
             judge=self.stamp(),
             specificity=str(parsed.get("specificity", "")),
             evidence=str(parsed.get("evidence", "")),
-            flags=list(parsed.get("flags", []) or []),
+            flags=_as_flags(parsed.get("flags")),
             rationale=str(parsed.get("rationale", "")),
         )
+
+
+def _as_flags(value) -> list[str]:
+    """Whatever the model put in `flags`, as a list of strings.
+
+    `list("scam")` is `['s', 'c', 'a', 'm']`, so a judge answering with a bare string --
+    which the prompt asks it not to do, and which a small model does anyway -- produced
+    four single-character flags on the verdict.
+    """
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple, set)):
+        return [str(v) for v in value if str(v).strip()]
+    return [str(value)]

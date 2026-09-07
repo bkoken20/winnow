@@ -8,6 +8,7 @@ from winnow.models import (
     NOVELTY_KNOWN,
     NOVELTY_NEW,
     NOVELTY_UNKNOWN,
+    NOVELTY_VALUES,
     NOVELTY_VARIANT,
     Claim,
     Coverage,
@@ -218,6 +219,56 @@ def test_the_readme_lists_every_stamped_field(tmp_path):
     )
 
 
+@pytest.mark.parametrize(
+    "response",
+    [
+        '["new", "concrete"]',       # a JSON array
+        '"new"',                     # a bare JSON string
+        "42",                        # a bare number
+        "null",                      # valid JSON, no content
+        "true",
+    ],
+)
+def test_valid_json_that_is_not_an_object_falls_back(tmp_path, response):
+    """The fallback exists for garbage; this garbage happens to parse.
+
+    json.JSONDecodeError was the only thing caught, so a judge answering with an array or a
+    bare string reached `parsed.get` and raised AttributeError -- uncaught by the CLI, so a
+    traceback after all the extraction work was already done.
+    """
+    class OddLLM:
+        def generate(self, model, prompt, *, num_ctx, as_json=False):
+            return response
+
+    judge, store, embedder = build_judge(
+        tmp_path, min_corpus=1, llm=OddLLM(), judge_model="odd"
+    )
+    fill_corpus(store, embedder, 3)
+
+    verdict = judge.judge_claim(make_claim("a claim to judge"))
+
+    assert verdict.novelty in NOVELTY_VALUES
+    assert verdict.judge.tier == 1, "it was still a tier-1 attempt and must be stamped as one"
+    assert "fell back" in verdict.rationale or verdict.rationale
+
+
+def test_flags_that_are_not_a_list_do_not_become_one_flag_per_character(tmp_path):
+    """`list("scam")` is ['s','c','a','m'], which would be four flags on every verdict."""
+    class StringFlagsLLM:
+        def generate(self, model, prompt, *, num_ctx, as_json=False):
+            return ('{"novelty": "new", "specificity": "concrete", "evidence": '
+                    '"asserted", "flags": "scam", "rationale": "looks promotional"}')
+
+    judge, store, embedder = build_judge(
+        tmp_path, min_corpus=1, llm=StringFlagsLLM(), judge_model="odd"
+    )
+    fill_corpus(store, embedder, 3)
+
+    verdict = judge.judge_claim(make_claim("a claim to judge"))
+
+    assert verdict.flags == ["scam"], f"got {verdict.flags}"
+
+
 def test_tier_one_falls_back_when_judge_returns_garbage(tmp_path):
     class BrokenLLM:
         def generate(self, model, prompt, *, num_ctx, as_json=False):
@@ -228,7 +279,13 @@ def test_tier_one_falls_back_when_judge_returns_garbage(tmp_path):
     )
     fill_corpus(store, embedder, 3)
     verdict = judge.judge_claim(make_claim("a claim"))
-    assert "unparseable" in verdict.rationale
+
+    # Assert the behaviour, not the adjective. This pinned the word "unparseable", which
+    # stopped being the whole story once output that PARSES but is the wrong shape had to
+    # take the same path.
+    assert "fell back" in verdict.rationale
+    assert verdict.novelty in NOVELTY_VALUES
+    assert verdict.judge.tier == 1, "it was a tier-1 attempt and must be stamped as one"
 
 
 # -- thresholds ----------------------------------------------------------------

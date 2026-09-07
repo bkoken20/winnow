@@ -3,8 +3,9 @@
 **Answer: far less than fits, and how much less depends on what the material is.** The
 default is **2,000 characters**, down from ~120,000 (whatever the context window allowed).
 
-Two studies, reproducible with `experiments/chunk_size_study.py` (4k and above) and
-`experiments/chunk_size_small.py` (below 4k, plus a spoken-transcript check).
+Two studies: `chunk_size_study.py` (4k and above) and `chunk_size_small.py` (below 4k,
+plus a spoken-transcript check). Both need source paths in the environment and run in that
+order — see [README.md](README.md) before running either.
 
 ## The question
 

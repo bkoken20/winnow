@@ -5,7 +5,8 @@ twice at two *small* chunk sizes raises coverage by 25–32 points. Adding a who
 pass, which was the original idea, adds about 3 and loses outright to simply using smaller
 chunks for the same money.
 
-Reproduce with `python experiments/two_pass_study.py`.
+Reproduce with `two_pass_study.py`, which needs source paths in the environment and
+`chunk_size_study.py` to have run first — see [README.md](README.md).
 
 ## The hypothesis being tested
 
@@ -35,6 +36,13 @@ once each pass has been run once every combination is computed offline at no fur
 | 2,000 + 4,000 | 377 | 59% | 1445 |
 
 ## Part B — spoken transcript (21 KB, own union of 77 claims)
+
+**These are a fresh extraction, not the one in `CHUNK_SIZE.md`.** That study saved summary
+rows but not the claim texts, so this one had to re-run the transcript at every size to have
+texts to merge. Same model, same temperature, same transcript — and the 1,000-character
+setting returned 30 claims here against 28 there, moving the union from 76 to 77 and that
+setting from 37% to 39%. Both runs are reported as measured; neither is a correction of the
+other. Extraction at temperature 0 is repeatable, not identical.
 
 | approach | claims | coverage | seconds |
 |---|---:|---:|---:|
@@ -73,8 +81,8 @@ of them against a union of 635. Right in kind, negligible in volume.
 ## What changed in the tool
 
 Extraction now takes a list of chunk sizes. The second pass is **on for `ingest` and off for
-`index`**, because the cost asymmetry is stark: judging one 20-minute talk costs 205s instead
-of 101s, while indexing a thousand-document corpus costs thirty hours instead of fifteen.
+`index`**, because the cost asymmetry is stark: judging one 25-minute talk costs 205s instead
+of 101s, while indexing the 7.5 MB corpus below costs 26 hours instead of 12.
 Both are configurable (`ingest_extra_passes`, `index_extra_passes`; an empty list disables).
 
 Two passes over one text produce genuine rewordings of the same assertion — 19% of the
@@ -112,8 +120,9 @@ against a figure from another.
 # Addendum: the third pass
 
 Computed from the stored outputs of the study above — every pass's claim texts are
-persisted, so all merges are deterministic and need no further extraction.
-(`experiments/third_pass_analysis.py`.)
+persisted, so all merges are deterministic and need no further extraction. Reproduce with
+`third_pass_analysis.py`, which calls no model and needs only `two_pass_study.py` to have
+run ([README.md](README.md)).
 
 | passes | documentation coverage | minutes | transcript coverage | minutes |
 |---|---:|---:|---:|---:|
@@ -128,7 +137,7 @@ still not flattened.
 
 | | 1 pass | 2 passes | 3 passes | third pass adds |
 |---|---:|---:|---:|---:|
-| ingest — one 20-minute talk | 1.7 min | 3.4 min | 4.5 min | **+66 seconds** |
+| ingest — one 25-minute talk | 1.7 min | 3.4 min | 4.5 min | **+66 seconds** |
 | index — a 7.5 MB corpus | 11.6 h | 26.3 h | 34.8 h | **+8.5 hours** |
 
 The ingest row is measured. The index row is projected from measured throughput

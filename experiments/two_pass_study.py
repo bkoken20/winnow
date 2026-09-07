@@ -39,9 +39,14 @@ sys.path.insert(0, str(HERE.parent))
 def _env_path(name: str, what: str) -> Path:
     raw = os.environ.get(name)
     if not raw:
+        # The example has to match the variable being asked for. It used to read
+        # "/path/to/notes" for every variable, including the one wanting a transcript file.
+        example = "/path/to/notes" if name.endswith("NOTES") else "/path/to/transcript.txt"
+        script = Path(sys.argv[0]).name or "<script>.py"
         raise SystemExit(
             f"set {name} to {what}.\n"
-            f"  example:  {name}=/path/to/notes python experiments/<script>.py"
+            f"  example:  {name}={example} python experiments/{script}\n"
+            f"  see experiments/README.md for the full setup and the order to run in."
         )
     return Path(raw)
 

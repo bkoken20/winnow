@@ -10,6 +10,10 @@ found.
 figure appears, because an 88% that quietly implies human review is worth less than an
 honest 88%.
 
+Reproduce with `correctness_study.py`, then `strict_judge_study.py` for the addendum.
+Both need `two_pass_study.py` to have run, a transcript path in the environment, and
+`ollama pull gemma3:27b` — see [README.md](README.md).
+
 ## What is being measured
 
 **Faithfulness to the source, not truth about the world.** If the speaker is wrong and the

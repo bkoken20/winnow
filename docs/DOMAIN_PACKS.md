@@ -45,14 +45,19 @@ Point Winnow at a packs directory outside the repo with `packs_root` in `winnow.
 |---|---|
 | `version` | Bump when you change prompts or schema. It is recorded in every verdict, so you can tell later which pack produced what. |
 | `schema` | The fields a claim has in your field. Documentation for you and for the prompt; Winnow stores whatever the model returns. |
-| `use_frames` | `false` for most domains. Only true where meaning genuinely lives on screen. |
-| `min_corpus` | Claims required before novelty verdicts are issued at all. Below it, everything is `unknown`. |
+| `use_frames` | `false` for most domains. Only true where meaning genuinely lives on screen — and setting it true without a `frame_prompt` is refused at load, since frames would be sampled, described with an empty prompt, and wasted. |
+| `min_corpus` | Claims required before novelty verdicts are issued — counting *other* claims, never the one being judged. Below it, everything is `unknown`. A corpus of exactly 25 therefore still reports `unknown` when re-judged. |
 
 ## The extraction prompt
 
 `__TEXT__` is replaced with the source text. Use that literal token — **not** `{}` or
 `str.format()`, because prompts contain literal JSON braces as output examples and formatting
 would raise on the first one.
+
+**A prompt without `__TEXT__` is refused when the pack loads.** Without it the model is asked
+to find claims in a prompt containing no source at all, and answers by inventing them or
+returning nothing — with no error anywhere. That failure is silent and expensive to trace,
+so it is caught at load time instead.
 
 A good extraction prompt does four things:
 
@@ -122,12 +127,19 @@ Public, permissively-licensed material a user can fetch to seed a corpus. Winnow
 ]
 ```
 
-Fetched with `python scripts/fetch_starter_corpus.py --pack your_domain --dest <folder>`.
-Check the licence of anything you list.
+Fetched with:
 
-**Curate this list; do not bulk-list.** Measured on a real run: extraction takes roughly
-30-40 seconds per average documentation page with a 14B model, so 1,000 files is around 15
-hours. The first version of the shipped pack listed several large documentation
+```bash
+python scripts/fetch_starter_corpus.py --pack your_domain --dest <folder> --limit 80
+```
+
+`--limit` stops after that many files, preferring substantial pages over stubs, so someone
+trying your pack gets a working corpus in minutes instead of hours. Drop it for the full
+set. Check the licence of anything you list.
+
+**Curate this list; do not bulk-list.** Measured: 337 documentation pages took about 3.5
+hours to index with a 14B model — roughly 37 seconds a page, so a thousand pages is most of
+half a day. The first version of the shipped pack listed several large documentation
 repositories and produced 1,293 files — most of them API reference, which is high volume
 and low claim density. "This function accepts these arguments" is not a claim anyone needs
 a novelty verdict on, and it costs the same to extract as one that matters.
@@ -148,7 +160,7 @@ most of what exists.
 
 ```bash
 winnow packs                            # does it load?
-winnow ingest <a file you know well>    # are the claims real claims?
+winnow ingest <a link or file you know well>   # are the claims real claims?
 ```
 
 Read the extracted claims before trusting any verdict built on them. If extraction is

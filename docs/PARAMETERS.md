@@ -62,10 +62,10 @@ is `known`, `0.75`–`0.90` is `variant`, below is `new`.
 | `name`, `version` | — | `version` is recorded in every verdict, so you can tell later which pack produced what. Bump it when you change prompts or schema. |
 | `description` | — | One line, shown by `winnow packs`. |
 | `schema` | — | The fields a claim has in this domain. Documentation for you and for the prompt; Winnow stores whatever the model returns. |
-| `extract_prompt` | — | File containing the extraction prompt. Must contain the literal token `__TEXT__`. |
+| `extract_prompt` | — | File containing the extraction prompt. **Must contain the literal token `__TEXT__`**, enforced when the pack loads — without it the model gets no source text and answers by inventing claims or returning nothing, with no error anywhere. |
 | `frame_prompt` | — | File containing the frame-description prompt. Ask for prose, never JSON. |
 | `starter_sources` | — | File listing public sources for seeding a corpus. |
-| `use_frames` | `false` | Whether to sample and describe frames. Leave off unless meaning genuinely lives on screen in your domain. |
+| `use_frames` | `false` | Whether to sample and describe frames. Leave off unless meaning genuinely lives on screen in your domain. Setting it true with no `frame_prompt` is refused at load. |
 | `min_corpus` | `25` | Claims required before any novelty verdict is issued — counting *other* claims, never the one being judged. Below it, everything comes back `unknown` rather than `new`. So a corpus of exactly 25 still reports `unknown` when re-judged, because each claim then rests on 24 peers. Raise for broad domains, lower for narrow ones. |
 
 ## Command-line flags
@@ -112,7 +112,8 @@ against what exists.** Adding a new setting enlarges the union and lowers every 
 figure. Compare within one study; never quote a figure from one study against another.
 
 **What is not measured:** whether claims are *correct* varies with these settings.
-Hand-grading found 88% faithful with no fabrication (`experiments/CORRECTNESS.md`), but
-faithfulness *by chunk size* could not be measured, because no local judge tested could
-detect the error class at all. If you tune aggressively for volume, you are trading against
+Grading 25 claims one by one against their source found 88% faithful with no fabrication
+(`experiments/CORRECTNESS.md` — done by a frontier model, not a human, and the file says so).
+Faithfulness *by chunk size* could not be measured at all, because no local judge tested
+could detect the error class. If you tune aggressively for volume, you are trading against
 an accuracy figure nobody has measured.

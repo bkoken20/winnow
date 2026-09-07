@@ -1,58 +1,64 @@
 # Getting material in
 
-**Winnow does not download anything.** It has no network code for acquisition, no built-in
-downloader, and no "just paste a URL" mode. You obtain material yourself, by whatever means
-is appropriate for you and lawful where you are, and you point Winnow at the result.
+Pass `winnow ingest` a URL and it fetches the captions for you:
 
-This page explains how, in detail, because leaving you to work it out would be a poor trade
-for a boundary the project holds on purpose.
+```bash
+winnow ingest https://youtu.be/SOME_VIDEO
+```
 
-## Why it works this way
-
-Four reasons, in descending order of how much they matter:
-
-1. **It is your call, not ours.** Whether you may download a particular video depends on the
-   site's terms, the content's licence, your jurisdiction, and your purpose. A tool that
-   downloads on your behalf quietly makes that judgement for you. This one does not.
-2. **It keeps the project clean.** Winnow distributes no downloader and performs no
-   downloading, so nothing here inherits anyone else's terms of service.
-3. **It makes Winnow testable.** The whole pipeline runs offline against files on disk,
-   which is why the test suite needs no network and no model server.
-4. **It widens what Winnow works on.** Because the input is "a file", Winnow works equally
-   on conference recordings, podcast episodes, lecture captures, internal meeting archives,
-   a folder of PDFs you already own, or anything else you can turn into text.
+Pass it a file or a folder instead and it uses that, untouched. Both work; the rest of this
+page covers what the first one actually does, and how to do it yourself when you want more
+control than one command gives you.
 
 ## What Winnow accepts
 
-Point `winnow ingest` at any of:
-
 | you have | what to pass | notes |
 |---|---|---|
+| a video URL | `winnow ingest https://youtu.be/...` | fetches captions with yt-dlp, caches them per URL |
 | a transcript file | `winnow ingest talk.txt` | plain text or markdown |
 | a subtitle file | `winnow ingest talk.en.vtt` | `.vtt`, `.srt`, `.ass`, `.sub` |
 | a folder | `winnow ingest ./talk/` | finds `transcript.txt` or any subtitle file inside |
 | a media file plus a transcript beside it | `winnow ingest ./talk/` | media is used only for frames |
 
-If a folder holds media but **no** transcript, Winnow stops and tells you so. It will not
-transcribe audio for you — see [Producing a transcript](#producing-a-transcript) below.
+**Two things Winnow will not do.** It does not transcribe: a video with no captions is a
+stop with instructions, not a silent empty result — see
+[Producing a transcript](#producing-a-transcript). And it does not read PDFs; convert them
+first with something like `pdftotext` and pass the text.
 
-## yt-dlp
+## How fetching works, and where the decisions stay yours
 
-[yt-dlp](https://github.com/yt-dlp/yt-dlp) is the tool most people use to obtain video and
-captions from streaming sites. It is not bundled with Winnow, not invoked by Winnow, and not
-required by Winnow — but it is the most likely way you will produce input, so here is how it
-works.
+Winnow shells out to [yt-dlp](https://github.com/yt-dlp/yt-dlp). Three deliberate limits:
 
-### Before you use it
+1. **You install yt-dlp; Winnow never installs it for you.** `pip install -U yt-dlp`. If it
+   is absent, Winnow stops and says so rather than reaching for your package manager. There
+   is a test asserting no install is attempted, because a message promising restraint is not
+   the same as restraint.
+2. **The exact command is printed before it runs.** Nothing reaches the network without
+   appearing on your screen first, so you can see precisely what was requested and from
+   where.
+3. **Captions only, unless you ask otherwise.** `--with-video` downloads the video, capped
+   at 720p, and is needed only by packs that describe frames. Captions are a small text file;
+   the video is hundreds of megabytes and buys nothing else, since frames are downscaled to
+   640px before the vision model sees them.
 
-Read the terms of the site you are pointing it at. Many prohibit downloading. Some permit it
-for personal use. Some content carries a licence that allows it and some does not. Rules
-differ by country, and none of this is legal advice — the point is simply that **the decision
-is yours to make deliberately**, which is why this tool does not make it for you.
+Fetched material is cached under `cache_path`, one folder per URL, named after the link. The
+same URL is not fetched twice, and you can look inside and see exactly what arrived.
+`--refetch` ignores the cache.
 
-Note also that on most sites, **you do not need the video at all**. Captions alone are enough
-for everything Winnow does except frame description, and captions are a small text file
-rather than a several-hundred-megabyte download. Prefer them.
+### Whether you should fetch at all is still your call
+
+Winnow runs the command; it does not decide that running it is appropriate. Whether you may
+download from a particular site depends on that site's terms, the content's licence, your
+jurisdiction and your purpose. Many sites prohibit it, some permit it for personal use, and
+none of this is legal advice. You choose the URL, you installed the downloader, and you see
+the command before it runs — the judgement is yours, and Winnow is deliberately built so
+that it cannot be made silently on your behalf.
+
+## Driving yt-dlp yourself
+
+Everything below is for when one command is not enough: playlists, channels, awkward
+formats, or simply wanting the files before Winnow sees them. Fetch into a folder, then
+`winnow ingest ./that-folder/`.
 
 ### Installing
 
@@ -173,6 +179,6 @@ Nothing about Winnow is specific to any one site:
 - **Podcasts** — many publish transcripts; otherwise use faster-whisper on the audio file.
 - **Conference talks** — often carry official captions; download or copy them.
 - **Recorded meetings** — most conferencing tools export a transcript directly.
-- **Papers and documentation** — already text. Convert PDFs with `pdftotext` and pass the
-  result.
+- **Papers and documentation** — markdown and text work directly. PDFs do not: convert
+  them with `pdftotext` first and pass the result.
 - **Your own recordings** — a file on disk is a file on disk.

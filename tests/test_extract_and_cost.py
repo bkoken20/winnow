@@ -199,6 +199,39 @@ def test_long_run_proceeds_once_accepted():
     gate(Projection(unit_seconds=5.0, units=1000), accepted=True)
 
 
+def test_an_accepted_run_still_shows_its_projection(capsys):
+    """Acceptance must not silence the number.
+
+    `--accept-minutes 999999` used to start a 1,389-hour run without the user ever seeing
+    a projection, while the documentation promised the tool shows the number and waits.
+    A budget accepted sight-unseen is not informed consent.
+    """
+    gate(Projection(unit_seconds=5.0, units=1000), accepted=True)
+    err = capsys.readouterr().err
+    assert "projected run:" in err
+    assert "83.3 minutes" in err  # 5000s; human() switches to hours above 5400s
+
+
+def test_a_refused_run_also_shows_its_projection(capsys):
+    with pytest.raises(RunRefused):
+        gate(Projection(unit_seconds=5.0, units=1000), accepted=False)
+    assert "projected run:" in capsys.readouterr().err
+
+
+def test_a_short_run_stays_quiet(capsys):
+    """A gate that fires on a twenty-second job trains people to ignore it."""
+    gate(Projection(unit_seconds=0.5, units=10), accepted=False)
+    assert capsys.readouterr().err == ""
+
+
+def test_the_projection_goes_to_stderr_not_stdout(capsys):
+    """A caller parsing stdout should not have to filter progress chatter."""
+    gate(Projection(unit_seconds=5.0, units=1000), accepted=True)
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err
+
+
 def test_acceptance_must_cover_the_projection():
     projection = Projection(unit_seconds=6.0, units=1000)  # 100 minutes
     assert accepted_by_flag(120, projection) is True

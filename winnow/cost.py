@@ -11,6 +11,7 @@ only way past it is to be shown a number and accept it.
 
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass
 
@@ -84,10 +85,28 @@ def gate(projection: Projection, accepted: bool, *, threshold_seconds: float = 1
 
     Runs shorter than the threshold proceed without ceremony -- a gate that fires on a
     twenty-second job trains people to click through it, which defeats the purpose.
+
+    Above the threshold the projection is ALWAYS announced, whether or not the run was
+    pre-accepted. Acceptance previously silenced it entirely, so `--accept-minutes 999999`
+    started a 1,389-hour run without the user ever seeing a number -- while the
+    documentation promised the tool "shows you the number, and waits for you to accept it".
+    A budget accepted sight-unseen is not informed consent, and a projection nobody reads
+    is not a measurement anyone benefits from.
+
+    Announced on stderr: this is a library, and a caller parsing stdout should not have to
+    contend with progress chatter.
     """
     if projection.total_seconds <= threshold_seconds:
         return
+
+    print(f"projected run: {projection.describe()}", file=sys.stderr, flush=True)
+
     if accepted:
+        print(
+            f"proceeding -- accepted budget covers {projection.human()}",
+            file=sys.stderr,
+            flush=True,
+        )
         return
     raise RunRefused(
         f"This run is projected at {projection.human()} ({projection.describe()}).\n"

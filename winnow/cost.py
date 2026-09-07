@@ -11,6 +11,7 @@ only way past it is to be shown a number and accept it.
 
 from __future__ import annotations
 
+import math
 import sys
 import time
 from dataclasses import dataclass
@@ -150,8 +151,19 @@ def gate(projection: Projection, accepted: bool, *, threshold_seconds: float = 1
         return
     raise RunRefused(
         f"This run is projected at {projection.human()} ({projection.describe()}).\n"
-        f"Re-run with --accept-minutes {projection.total_seconds / 60:.0f} to proceed."
+        f"Re-run with --accept-minutes {suggested_budget_minutes(projection)} to proceed."
     )
+
+
+def suggested_budget_minutes(projection: Projection) -> int:
+    """The smallest whole minute figure that `accepted_by_flag` will actually accept.
+
+    Rounded UP, not to nearest. `:.0f` turned a 130-second run into "--accept-minutes 2",
+    and two minutes is 120 seconds, so the user followed the instruction the tool had just
+    given them and was refused again with the same message. An instruction that does not
+    work when obeyed is worse than no instruction.
+    """
+    return math.ceil(projection.total_seconds / 60)
 
 
 def accepted_by_flag(accept_minutes: float | None, projection: Projection) -> bool:

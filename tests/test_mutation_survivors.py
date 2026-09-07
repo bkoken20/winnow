@@ -79,3 +79,53 @@ def test_an_accepted_budget_means_exactly_that_many_minutes():
 
 def test_no_budget_is_not_an_unlimited_budget():
     assert accepted_by_flag(None, Projection(unit_seconds=1.0, units=1)) is False
+
+
+# -- the refusal must name a budget that works ---------------------------------------
+#
+# Not from mutation sampling: found reading cost.py. `:.0f` rounds to nearest, so a
+# 130-second run is refused with "Re-run with --accept-minutes 2", and 2 minutes is 120
+# seconds, which does not cover it. Following the tool's own instruction fails identically.
+
+
+def _suggested_budget(projection) -> float:
+    import re
+
+    from winnow.cost import RunRefused, gate
+
+    try:
+        gate(projection, accepted=False)
+    except RunRefused as exc:
+        return float(re.search(r"--accept-minutes ([0-9.]+)", str(exc)).group(1))
+    raise AssertionError("expected the run to be refused")
+
+
+@pytest.mark.parametrize(
+    "unit_seconds,units",
+    [
+        (1.3, 100),      # 130 s -> the original failure
+        (1.0, 121),      # just over the threshold
+        (0.001, 200000), # 200 s
+        (7.0, 1000),     # 7000 s, into hours
+        (1.0, 3661),     # an hour and a second
+    ],
+)
+def test_the_budget_the_refusal_names_is_actually_accepted(unit_seconds, units, capsys):
+    projection = Projection(unit_seconds=unit_seconds, units=units)
+    suggested = _suggested_budget(projection)
+    capsys.readouterr()
+    assert accepted_by_flag(suggested, projection), (
+        f"refusal suggested --accept-minutes {suggested}, which is "
+        f"{suggested * 60:.1f}s, and the run needs {projection.total_seconds:.1f}s. "
+        "Following the tool's own instruction is refused again."
+    )
+
+
+def test_the_suggested_budget_is_not_wastefully_larger_than_needed(capsys):
+    """Rounding up must not become rounding up to the next hour."""
+    projection = Projection(unit_seconds=1.3, units=100)  # 130 s
+    suggested = _suggested_budget(projection)
+    capsys.readouterr()
+    assert suggested * 60 < projection.total_seconds + 60, (
+        f"suggested {suggested} minutes for a {projection.total_seconds}s run"
+    )

@@ -79,7 +79,10 @@ def fetch(
 ) -> Path:
     """Fetch captions (and optionally video) for `url` into `dest`. Returns the folder.
 
-    Existing files are left alone, so re-running is cheap and does not re-download.
+    This ALWAYS runs yt-dlp. Not re-fetching is the caller's decision, not this function's:
+    `cli.cmd_ingest` keeps one folder per URL and skips calling here when the material it
+    needs is already in it. The docstring used to promise "existing files are left alone",
+    which described yt-dlp's own overwrite behaviour rather than anything this code does.
     """
     dest = Path(dest)
     dest.mkdir(parents=True, exist_ok=True)

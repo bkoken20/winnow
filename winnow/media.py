@@ -1,10 +1,13 @@
 """Local media handling. This module never touches the network.
 
-Acquisition is the user's job (see docs/ACQUISITION.md). Winnow accepts a transcript, a
-media file, or a folder that already exists on disk. That boundary is deliberate: it keeps
-the project clear of distributing a downloader, makes the whole pipeline testable offline,
-and means Winnow works on lecture recordings, podcasts, conference talks and internal
-archives just as well as on anything downloaded from a video site.
+Everything here works on what is already on disk: a transcript, a media file, or a folder
+holding one. Fetching lives in `winnow.acquire`, which is the only module that reaches the
+network and which shells out to yt-dlp (see docs/ACQUISITION.md).
+
+Keeping that split means the whole pipeline is testable offline, and that Winnow works on
+lecture recordings, podcasts, conference talks and internal archives exactly as well as on
+anything fetched from a video site -- the fetch is a convenience at the front, not a
+requirement.
 """
 
 from __future__ import annotations

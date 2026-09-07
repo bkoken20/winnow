@@ -148,3 +148,31 @@ def test_no_absolute_machine_paths_in_tracked_files():
             for match in pattern.findall(text):
                 offenders.append(f"{rel}: {match}")
     assert not offenders, f"absolute machine paths in tracked files: {offenders[:5]}"
+
+
+def test_files_cited_in_the_source_exist():
+    """A comment pointing at a document is a link, and rots like one.
+
+    `config.py` cited a THIRD_PASS file under the experiments folder, which never existed
+    -- the third-pass study is an addendum inside TWO_PASS.md. Someone checking where a
+    default came from follows that to nothing. The markdown link check cannot see it,
+    because it lives in a Python comment.
+
+    (That path is spelled out here in prose rather than written literally: this file is
+    scanned too, and a checker that trips on its own description of the bug is noise.)
+    """
+    import subprocess
+
+    tracked = subprocess.run(
+        ["git", "ls-files", "*.py"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.split()
+    assert len(tracked) > 20, f"expected a substantial .py listing, got {tracked}"
+
+    cited = re.compile(r"\b((?:docs|experiments|tests|packs|scripts)/[A-Za-z0-9_./-]+\.(?:md|json|py|txt))")
+    missing = []
+    for rel in tracked:
+        text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+        for match in cited.findall(text):
+            if not (ROOT / match).exists():
+                missing.append(f"{rel}: {match}")
+    assert not missing, f"source cites files that do not exist: {missing}"

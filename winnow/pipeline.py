@@ -291,8 +291,10 @@ class Pipeline:
     ) -> tuple[list[Claim], list[Verdict]]:
         """Process one piece of material: transcript -> claims -> verdicts.
 
-        Never acquires anything. `target` is a transcript file, a media file, or a folder
-        that already holds one.
+        `target` is a transcript file, a media file, or a folder already holding one. This
+        method never fetches: `winnow ingest <url>` fetches first (see `winnow.acquire`)
+        and then calls this with the folder it produced, so the two paths are identical
+        from here on.
         """
         target = Path(target)
         text = transcript_for(target)
@@ -304,8 +306,9 @@ class Pipeline:
                 else "no transcript or subtitle file found"
             )
             raise FileNotFoundError(
-                f"{target}: {hint}. Winnow does not transcribe or download -- "
-                "see docs/ACQUISITION.md for how to produce one."
+                f"{target}: {hint}. Winnow does not transcribe -- pass a video URL to "
+                "fetch captions, or see docs/ACQUISITION.md for how to make a transcript "
+                "yourself."
             )
 
         sid = source_id_for(target)
@@ -320,7 +323,7 @@ class Pipeline:
         )
 
         # Judging one item is a matter of minutes, so it runs the thorough pass list even
-        # when indexing does not: three passes take a 20-minute talk from 39% coverage to
+        # when indexing does not: three passes take a 25-minute talk from 39% coverage to
         # 92% for about three extra minutes, while the same choice on a 7.5 MB corpus is
         # 11.6 hours against 34.8 (experiments/TWO_PASS.md).
         extractor = replace(

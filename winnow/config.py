@@ -52,9 +52,9 @@ class Config:
     chunk_chars: int = 2000
     # Extra extraction passes at OTHER chunk sizes, re-reading the same text. Different
     # boundaries put different sentences beside each other, so each pass finds claims the
-    # others miss. Measured (experiments/TWO_PASS.md, experiments/THIRD_PASS.md):
+    # others miss. Measured (experiments/TWO_PASS.md, including its third-pass addendum):
     #
-    #   passes                 documentation      20-minute talk
+    #   passes                 documentation      25-minute talk
     #   2,000                    44%  13.9 min      39%  1.7 min
     #   +1,000                   78%  31.6 min      71%  3.4 min
     #   +1,000 +4,000            90%  41.8 min      92%  4.5 min

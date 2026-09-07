@@ -71,9 +71,16 @@ That division is the whole economic argument, and it is measured rather than ass
 | novelty by similarity | local embeddings | "have I seen this?" is a distance question, not a reasoning one |
 | **the final read** | **you, or a frontier model you direct** | the part local models measurably cannot do |
 
-A 25-minute talk costs roughly three minutes of local compute and produces a handful of
-claims already sorted into *known* and *new*. Reading that handful is cheap. Reading the
-talk was not.
+**What it actually costs, measured.** A 25-minute talk (21 KB of transcript) takes **4.9
+minutes** of local compute on a 12 GB consumer GPU and yields **72 claims**. Not a handful
+— but 72 short statements is a few minutes of reading against 25 minutes of watching, and
+you can read them at your own pace, search them, and keep them.
+
+**On a fresh corpus every one of those 72 comes back `?`** — Winnow refuses to call anything
+novel until the corpus passes the pack's minimum, because a blind spot is not a discovery.
+The sorting into *known* and *new* is what you get once a corpus exists; the first few
+things you feed it are just building one. `--new-only` is what makes the output short, and
+it only starts being useful after that point.
 
 **Why the last row is not local.** An independent local judge (27B, a different family from
 the extractor) was asked to check extracted claims against their source. It reported

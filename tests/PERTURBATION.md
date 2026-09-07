@@ -232,6 +232,43 @@ The defect was that neither of those couplings was written down anywhere, and on
 the token having to be capitals -- is a trap for pack authors, who are the people least able
 to diagnose it.
 
+## Round nine — reading the root files
+
+Five tracked files. Two defects, and both were in a claim that had already been corrected
+somewhere else in the same repository.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 39 | README's Privacy section answers "By default: nothing" | `test_the_readme_privacy_section_does_not_say_nothing_leaves` | RED |
+| 40 | README and `egress_statement()` name different network calls | `test_the_readme_agrees_with_the_code_about_what_leaves` | RED |
+| 41 | `pyflakes` dropped from the `dev` extra | `test_the_dev_extra_installs_what_the_suite_needs` | RED |
+| 42 | a module using syntax newer than the declared Python floor | `test_the_declared_python_floor_is_one_this_code_could_run_on` | RED |
+
+\#39 is the third appearance of one claim. `egress_statement()` said "Nothing leaves this
+machine" (round seven). The README's opening said it too, and was fixed weeks earlier. The
+section actually **headed Privacy** still said it — under the heading a reader goes to for
+precisely this question. Fixing one instance of a claim and leaving another in the same
+document is how this survives, so the check reads the whole SECTION rather than a sentence
+someone remembered to change, and #40 asserts the two places describe the same network call.
+
+\#41 is a missing dependency that degrades a check into a **skip**. `pip install -e .[dev]`
+installed only pytest, so `test_no_undefined_names_or_unused_imports` — the check that exists
+because three scripts once shipped with a syntax error — was skipped by its own `skipif`,
+silently, as one `s` in a `-q` run, with the suite still green. A dependency whose absence
+makes a check vanish is worse than one whose absence makes it fail.
+
+### A mutation that came back GREEN, correctly
+
+Lowering `requires-python` from `>=3.10` to `>=3.9` leaves the suite green, and that is the
+right answer rather than a gap. Every union type in the package is an annotation, and every
+module using one defers annotations, so nothing here actually requires 3.10. The floor is
+conservative, not wrong. Recorded because a green mutation is otherwise indistinguishable
+from a missing test, and this one was checked rather than assumed.
+
+The other three root files were clean: `LICENSE` is unmodified MIT, `.gitignore` covers every
+generated artefact (verified with `git check-ignore` in round four), and `requirements.txt`
+is now the thing `pyproject.toml` agrees with rather than contradicts.
+
 ### Two mutations that came back GREEN, and what each meant
 
 Both were faults in the *mutation*, not gaps in the tests — worth recording, because a

@@ -165,6 +165,20 @@ class Store:
             "SELECT id, text, fields_json, source_id FROM claims WHERE pack = ?", (pack,)
         )
 
+    def embed_models_in_use(self, pack: str) -> set[str]:
+        """Which embedding models produced the vectors already stored for this pack.
+
+        Vectors from different models are not comparable, and mismatched dimensions are
+        skipped outright during search -- so a corpus embedded with one model is entirely
+        INVISIBLE to another. This is how that is detected before it silently ruins every
+        verdict.
+        """
+        rows = self.conn.execute(
+            "SELECT DISTINCT embed_model FROM claims WHERE pack = ? AND embed_model IS NOT NULL",
+            (pack,),
+        )
+        return {r["embed_model"] for r in rows if r["embed_model"]}
+
     # -- search ----------------------------------------------------------------
 
     def similarity_search(

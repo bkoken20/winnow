@@ -19,6 +19,7 @@ from pathlib import Path
 from .config import Config
 from .cost import RunRefused
 from .llm import OllamaError
+from .pipeline import CorpusEmbeddingMismatch
 from .models import NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
 from .packs import available_packs, find_pack
 
@@ -43,6 +44,9 @@ def _run(func, args) -> int:
     """
     try:
         return func(args)
+    except CorpusEmbeddingMismatch as exc:
+        print(f"corpus/model mismatch: {exc}", file=sys.stderr)
+        return 6
     except RunRefused as exc:
         print(str(exc), file=sys.stderr)
         return 3
@@ -94,6 +98,19 @@ def cmd_status(args) -> int:
             print(
                 f"              : below the {pack.min_corpus}-claim minimum, so novelty "
                 "verdicts will report 'unknown' rather than guess"
+            )
+
+        # Status is where someone looks when results seem wrong, so it has to surface the
+        # one condition that makes a full corpus behave like an empty one. It builds its
+        # own Store rather than a Pipeline, so it does not get the constructor's check for
+        # free and has to ask the same question itself.
+        foreign = sorted(store.embed_models_in_use(config.pack) - {config.embed_model})
+        if foreign:
+            print(
+                f"              : UNUSABLE -- these claims were embedded with "
+                f"{', '.join(repr(m) for m in foreign)}, not {config.embed_model!r}. "
+                "They cannot be compared against anything, so every claim would look new. "
+                "Set embed_model back, or start a fresh corpus and re-index."
             )
         store.close()
     except Exception as exc:  # noqa: BLE001 - status must never crash

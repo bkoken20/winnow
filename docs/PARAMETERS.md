@@ -30,7 +30,7 @@ the end.
 | `vision_num_ctx` | `8192` | Same rule as `text_num_ctx`, for the vision model. |
 | `frame_every_seconds` | `60` | Sample one frame per this many seconds of video. |
 | `max_frames` | `20` | Hard cap on frames per item. One vision call each, several seconds apiece, on the one path with **no cost gate** — so the default is deliberately modest. **Not measured:** no experiment here establishes how many frames are worth describing, unlike the chunking defaults. Treat both as conservative guesses. |
-| `embed_model` | `nomic-embed-text` | Embeds claims for similarity. Changing it after building a corpus makes old and new claims incomparable — claims record which model embedded them, and mismatched ones are skipped during search. Re-index if you switch. |
+| `embed_model` | `nomic-embed-text` | Embeds claims for similarity. **Changing it under an existing corpus is refused**, not warned: vectors from two models cannot be compared, so the old corpus would be invisible and every claim would look new. Either change it back, or point `corpus_path` at a fresh file and re-index. `winnow status` flags an unusable corpus. |
 | `embed_backend` | `ollama` | `ollama` for real embeddings. `hashing` is a deterministic offline stand-in **for tests only** — it produces meaningless similarity, and any verdict computed with it is stamped so it can be identified and discarded. |
 
 ## Extraction

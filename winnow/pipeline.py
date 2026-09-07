@@ -28,6 +28,16 @@ from .store import Store
 NOTE_EXTENSIONS = TEXT_EXTENSIONS
 
 
+class CorpusEmbeddingMismatch(RuntimeError):
+    """The corpus was built with a different embedding model than the one configured.
+
+    Refused rather than warned. Vectors from two models are not comparable and mismatched
+    dimensions are skipped entirely during search, so the corpus becomes invisible: every
+    claim comes back `new` against a corpus that may hold ten thousand of them. Confident
+    wrong answers are worse than a stop.
+    """
+
+
 def source_id_for(path: Path) -> str:
     return hashlib.blake2b(str(path.resolve()).encode("utf-8"), digest_size=10).hexdigest()
 
@@ -74,7 +84,25 @@ class Pipeline:
             ),
             llm=llm if config.judge_model else None,
         )
-        return cls(config, store, pack, extractor, judge, llm)
+        pipeline = cls(config, store, pack, extractor, judge, llm)
+        pipeline.check_corpus_embeddings()
+        return pipeline
+
+    def check_corpus_embeddings(self) -> None:
+        """Refuse to run against a corpus embedded by a different model."""
+        in_use = self.store.embed_models_in_use(self.pack.name)
+        current = self.judge.embedder.name
+        foreign = sorted(in_use - {current})
+        if not foreign:
+            return
+        raise CorpusEmbeddingMismatch(
+            f"corpus '{self.config.corpus_path}' holds claims embedded with "
+            f"{', '.join(repr(m) for m in foreign)}, but embed_model is {current!r}.\n"
+            "  Vectors from different models cannot be compared, so the existing corpus "
+            "would be invisible and every claim would look new.\n"
+            f"  Either set embed_model back to {foreign[0]!r}, or start a fresh corpus "
+            "(change corpus_path, or delete the file) and re-index."
+        )
 
     # -- corpus building -------------------------------------------------------
 

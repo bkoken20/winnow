@@ -99,7 +99,7 @@ UNCLEARs became SUPPORTED and one DISTORTED became SUPPORTED.
 
 An underpowered instrument produced false negatives that read as findings — the identical
 failure this study exists to detect in the model. Recorded in
-`correctness_human_grades.json` alongside the corrected verdicts.
+`correctness_reference_grades.json` alongside the corrected verdicts.
 
 ## What this does and does not license
 

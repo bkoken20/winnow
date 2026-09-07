@@ -1,5 +1,6 @@
 {
   "grader": "Claude (Opus 5), reading each claim against its retrieved source excerpts",
+  "applies_to": "correctness_blind_sample.json as produced by the author's run, on the author's 25-minute transcript. The keys are POSITIONS in that sample, so these verdicts are meaningless against claims extracted from any other source. To compare a judge against graded claims of your own, grade your own blind sample and point WINNOW_REFERENCE_GRADES at it.",
   "recorded_before_seeing_judge_verdicts": true,
   "criterion": "faithfulness to the source, not truth about the world",
   "grades": {

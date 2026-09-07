@@ -29,8 +29,8 @@ export WINNOW_NOTES=~/notes
 export WINNOW_TRANSCRIPT=~/talk/transcript.txt
 
 # Windows PowerShell
-$env:WINNOW_NOTES = "C:\notes"
-$env:WINNOW_TRANSCRIPT = "C:\talk\transcript.txt"
+$env:WINNOW_NOTES = ".\notes"
+$env:WINNOW_TRANSCRIPT = ".\talk\transcript.txt"
 ```
 
 You also need Ollama running with the models in [MEASUREMENTS.json](MEASUREMENTS.json), plus
@@ -70,7 +70,13 @@ calls no model at all.
 The studies write their outputs next to themselves — `chunk_size_results.json`,
 `two_pass_results.json` and the rest. Those files embed **verbatim source text**, including
 whatever third-party material you pointed the environment variables at, so they are
-gitignored and never published. Only the write-ups and `MEASUREMENTS.json` are.
+gitignored and never published.
+
+What *is* committed: the three write-ups, `MEASUREMENTS.json`, and
+`correctness_reference_grades.json` — 25 verdicts with a short note each, quoting the source
+only as far as the note needs. Those grades are keyed by position in the author's blind
+sample, so they mean nothing against claims from another transcript; the studies will not
+join them to your run.
 
 That has one consequence worth knowing: nothing here can be re-derived from the repository
 alone. The tables are the record.

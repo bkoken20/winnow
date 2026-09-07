@@ -207,22 +207,52 @@ def main() -> int:
         f = lambda k: f"{100 * c[k] / n:.0f}%" if n else "-"
         print(f"{size:>8,} {n:>5} {f('SUPPORTED'):>11} {f('DISTORTED'):>11} {f('UNSUPPORTED'):>13}")
 
-    # ---- against the reference-graded sample ---------------------------------
-    human = json.loads(_require_prior("correctness_human_grades.json", "correctness_study.py (then grade the sample)").read_text(encoding="utf-8"))["grades"]
+    # ---- against a reference-graded sample -----------------------------------
+    # These verdicts are keyed by POSITION in a blind sample. Joining them to claims
+    # extracted from a different source compares verdict 7 of one transcript against claim 7
+    # of another and prints the result as an agreement figure. So the grades have to be for
+    # THIS run, and the shipped ones (the author's) are not, for anybody else.
+    grades_path = os.environ.get("WINNOW_REFERENCE_GRADES")
+    if not grades_path:
+        print(f"\n{'=' * 92}")
+        print("SKIPPED: agreement against reference grades.")
+        print(f"{'=' * 92}")
+        print("  The grades shipped in correctness_reference_grades.json are keyed by position")
+        print("  in the author's blind sample, on the author's transcript. Against claims from")
+        print("  any other source the join is meaningless, so it is not performed.")
+        print("  To run it: grade correctness_blind_sample.json from THIS run yourself, in the")
+        print("  same format, and set WINNOW_REFERENCE_GRADES to your file.")
+        (HERE / "strict_judge_results.json").write_text(
+            json.dumps({"judge_model": JUDGE_MODEL,
+                        "by_size": {str(k): v for k, v in by_size_rows.items()},
+                        "agreement": "not computed: no WINNOW_REFERENCE_GRADES for this run",
+                        "records": records}, indent=2),
+            encoding="utf-8")
+        print(f"\nwritten: {HERE / 'strict_judge_results.json'}")
+        return 0
+
+    reference = json.loads(Path(grades_path).read_text(encoding="utf-8"))["grades"]
     sample = json.load(open(_require_prior("correctness_blind_sample.json", "correctness_study.py"), encoding="utf-8"))
     lenient = {str(r["n"]): r["verdict"]
                for r in json.load(open(_require_prior("correctness_judge_verdicts.json", "correctness_study.py"), encoding="utf-8"))}
     strict_by_claim = {r["claim"]: r for r in records}
 
-    print(f"\n{'=' * 92}\nAGAINST THE HAND-GRADED SAMPLE (n=25)\n{'=' * 92}")
+    missing = [str(r["n"]) for r in sample if str(r["n"]) not in reference]
+    if missing:
+        raise SystemExit(
+            f"{grades_path} has no verdict for sample positions {missing[:5]}.\n"
+            f"  It must grade the blind sample from THIS run, all {len(sample)} of them."
+        )
+
+    print(f"\n{'=' * 92}\nAGAINST THE REFERENCE-GRADED SAMPLE (n={len(sample)})\n{'=' * 92}")
     agree_strict = agree_lenient = 0
-    known_distortions = [k for k in human if human[k]["verdict"] == "DISTORTED"]
+    known_distortions = [k for k in reference if reference[k]["verdict"] == "DISTORTED"]
     caught_strict = caught_lenient = 0
     false_alarms = []
 
     for r in sample:
         k = str(r["n"])
-        hv = human[k]["verdict"]
+        hv = reference[k]["verdict"]
         sv = strict_by_claim.get(r["claim"], {}).get("verdict", "MISSING")
         lv = lenient[k]
         agree_strict += hv == sv
@@ -233,8 +263,9 @@ def main() -> int:
         elif hv == "SUPPORTED" and sv in ("DISTORTED", "UNSUPPORTED"):
             false_alarms.append((k, r["claim"], sv, strict_by_claim[r["claim"]]["reason"]))
 
-    print(f"agreement with hand grades:  strict {agree_strict}/25 ({100*agree_strict/25:.0f}%)"
-          f"   lenient {agree_lenient}/25 ({100*agree_lenient/25:.0f}%)")
+    n = len(sample)
+    print(f"agreement with reference grades:  strict {agree_strict}/{n} ({100*agree_strict/n:.0f}%)"
+          f"   lenient {agree_lenient}/{n} ({100*agree_lenient/n:.0f}%)")
     print(f"distortions caught:          strict {caught_strict}/{len(known_distortions)}"
           f"   lenient {caught_lenient}/{len(known_distortions)}")
     print(f"false alarms on faithful claims: strict {len(false_alarms)}")

@@ -21,8 +21,10 @@ WHAT IS BEING MEASURED
 INDEPENDENCE
     The judge (gemma3:27b) is a different family and size from the extractor
     (qwen2.5:14b-instruct). A model grading its own output would share its blind spots.
-    A human-graded subsample calibrates the judge in a second step -- if the judge and a
-    human disagree often, the judge's verdicts on the full set mean nothing.
+    An independently graded subsample calibrates the judge in a second step -- if the
+    judge and the reference grading disagree often, the judge's verdicts on the full set
+    mean nothing. In the published run the calibration grading was done by a frontier
+    model -- not by a human -- and the write-up says so wherever the figure appears.
 
 RETRIEVAL
     The judge sees the three transcript windows nearest the claim, not the whole source, so
@@ -192,7 +194,7 @@ def main() -> int:
                ("SUPPORTED", "DISTORTED", "UNSUPPORTED", "UNCLEAR", "PARSE_FAIL")}
     print(f"\noverall: {overall}")
 
-    # ---- a blind sample for human grading ------------------------------------
+    # ---- a blind sample for independent grading ------------------------------
     import random
     random.seed(11)
     sample = random.sample(records, min(25, len(records)))
@@ -213,7 +215,7 @@ def main() -> int:
                     "overall": overall, "records": records}, indent=2),
         encoding="utf-8",
     )
-    print(f"\nblind sample for human grading: {HERE / 'correctness_blind_sample.json'}")
+    print(f"\nblind sample for independent grading: {HERE / 'correctness_blind_sample.json'}")
     print("(judge verdicts for the same sample held separately, for comparison after)")
     return 0
 

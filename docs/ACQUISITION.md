@@ -131,6 +131,16 @@ yt-dlp --playlist-items 1-20 --skip-download --write-auto-subs \
 
 - **HTTP 403 or 429** — throttling, not a permanent failure. Wait, then retry. Add
   `--sleep-requests 2` for bulk fetches to avoid triggering it in the first place.
+  Fetching several videos in quick succession is enough to earn one: in testing, three
+  fetches within a few minutes produced a 429 that outlasted a minute of waiting, from an
+  address that had worked moments before. Winnow deliberately does not retry this for you —
+  retrying a server that is asking you to stop is how a soft limit becomes a hard one.
+- **Two warnings you will probably see, and can ignore.** Recent yt-dlp prints
+  `No supported JavaScript runtime could be found` and `no impersonate target is available`
+  on YouTube. Both are warnings, not errors; captions were fetched successfully alongside
+  them throughout testing. If extraction later fails outright rather than warning, installing
+  a JS runtime (`deno`) or yt-dlp's impersonation extras is where to look — that is a yt-dlp
+  matter, and its own documentation is the place for it.
 - **"Unable to extract"** — usually an out-of-date yt-dlp. `pip install -U yt-dlp` first,
   before investigating anything else.
 - **No subtitles written** — the item genuinely has none. See below.

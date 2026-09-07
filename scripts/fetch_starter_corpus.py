@@ -83,7 +83,8 @@ def main() -> int:
     parser.add_argument(
         "--limit", type=int, default=None,
         help="stop after this many files. A full corpus is an overnight job; a bounded one "
-             "is enough to see the tool work. Smallest files first, since they index fastest.",
+             "is enough to see the tool work. Substantial pages are preferred over stubs: "
+             "taking the smallest files instead yields a corpus with nothing in it.",
     )
     args = parser.parse_args()
 
@@ -105,7 +106,7 @@ def main() -> int:
     dest.mkdir(parents=True, exist_ok=True)
     total = 0
     for source in sources:
-        if args.limit and total >= args.limit:
+        if args.limit is not None and total >= args.limit:
             print(f"reached --limit {args.limit}; stopping")
             break
         print(f"fetching {source['name']} ...")
@@ -116,9 +117,10 @@ def main() -> int:
                 text=True,
             )
             if result.returncode != 0:
-                print(f"    FAILED: {result.stderr.strip().splitlines()[-1:]}")
+                detail = (result.stderr or result.stdout).strip().splitlines()
+                print(f"    FAILED: {detail[-1] if detail else 'no output from git'}")
                 continue
-            remaining = (args.limit - total) if args.limit else None
+            remaining = (args.limit - total) if args.limit is not None else None
             copied = copy_markdown(
                 Path(tmp), source["paths"], dest, source["name"], limit=remaining
             )

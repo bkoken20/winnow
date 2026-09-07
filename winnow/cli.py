@@ -251,6 +251,24 @@ def cmd_ingest(args) -> int:
 
     text_of = {c.id: c.text for c in claims}
     print(f"{len(claims)} claims extracted\n")
+
+    if not claims:
+        # Finding nothing is a correct answer, and on its own it is indistinguishable from
+        # a broken tool. The shipped pack is domain-specific, so the most likely first run
+        # by a stranger is a video outside it: the extractor is asked for claims about AI
+        # tooling, the material is about something else, and the model rightly returns an
+        # empty list for every chunk. Say which pack looked and what it was looking for.
+        pack = find_pack(config.pack, Path(config.packs_root) if config.packs_root else None)
+        print(f"The '{pack.name}' pack looks for: {pack.description}")
+        print(
+            "  Nothing of that kind was found in this material. If it is about something\n"
+            "  else, that is the expected answer rather than a failure -- a pack is a\n"
+            "  prompt and a JSON file, and writing one for your own subject is the point:\n"
+            "  docs/DOMAIN_PACKS.md\n"
+            "  If the material IS in this pack's domain, the transcript may be empty or\n"
+            "  truncated -- check `text_num_ctx` against your model's real context length."
+        )
+        return 0
     for verdict in verdicts:
         if args.new_only and verdict.novelty != NOVELTY_NEW:
             continue

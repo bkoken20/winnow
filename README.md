@@ -58,6 +58,41 @@ relative to your accumulated knowledge, never to the material in isolation.
   and nuanced novelty — the same mechanism dressed in new vocabulary. The judge is pluggable:
   a 7B model locally, a 70B on serious hardware, or a cloud API. Your hardware, your call.
 
+## How this is meant to be run
+
+**Local models do the volume. An expensive model does the final call.**
+
+That division is the whole economic argument, and it is measured rather than assumed:
+
+| stage | who does it | why |
+|---|---|---|
+| transcription, frame description | local | bulk work, no judgement required |
+| claim extraction | local | thousands of calls; this is where the tokens would go |
+| novelty by similarity | local embeddings | "have I seen this?" is a distance question, not a reasoning one |
+| **the final read** | **you, or a frontier model you direct** | the part local models measurably cannot do |
+
+A 25-minute talk costs roughly three minutes of local compute and produces a handful of
+claims already sorted into *known* and *new*. Reading that handful is cheap. Reading the
+talk was not.
+
+**Why the last row is not local.** An independent local judge (27B, a different family from
+the extractor) was asked to check extracted claims against their source. It reported
+96–100% faithful and **zero** distortions across 85 claims. Hand-checking found three real
+distortions in a 25-claim sample — the judge had marked **all three** as supported. A
+stricter prompt, demanding a verbatim supporting quote, did no better: still 0 of 3, plus
+four false alarms. Two opposite prompt designs, same blindness. See
+[experiments/CORRECTNESS.md](experiments/CORRECTNESS.md).
+
+So Winnow deliberately stops where local models stop being trustworthy. It hands you a
+short, structured, deduplicated list with its reasoning attached — and the judgement that
+actually matters stays with something capable of making it.
+
+**The tool never calls a cloud API itself.** `judge_location` is a declaration used by
+`winnow status` to tell you what leaves your machine; it does not route anything. Tier-1
+judging runs against whatever model server you point `ollama_host` at. The "expensive model"
+in the table above is you, or an assistant you are working with, reading Winnow's output —
+which is exactly the arrangement this tool was built under.
+
 ## Two rules it will not bend
 
 **A thin corpus produces no verdict.** Below the pack's minimum, novelty comes back as

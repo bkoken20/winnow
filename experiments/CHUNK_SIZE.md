@@ -152,7 +152,8 @@ measurably finds more.**
   the whole text. A two-pass strategy (small chunks for detail, one whole-document pass for
   synthesis) may beat either alone. Untested.
 - **Correctness is unmeasured *in this file*.** Every table here counts what was found.
-  Measured separately in `CORRECTNESS.md`: 88% faithful by hand grading, no fabrication,
+  Measured separately in `CORRECTNESS.md`: 88% faithful when graded claim-by-claim (by a
+  frontier model, not a human), no fabrication,
   errors all of one kind (a qualifier dropped). Faithfulness *by chunk size* remains
   unmeasured, so nothing here is validated against accuracy.
 

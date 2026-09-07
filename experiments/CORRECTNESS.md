@@ -1,8 +1,14 @@
 # Are the extracted claims faithful to the source?
 
-**88% clean on a sample of 25 graded claim-by-claim against the source, with 12% distorted — and the distortions share a
-single shape.** An automated judge put it at 96–100%, and that figure is **withdrawn**: the
-judge missed every distortion a human found.
+**88% clean on a sample of 25 graded claim-by-claim against the source, with 12% distorted
+— and the distortions share a single shape.** An automated local judge put the same material
+at 98%, and that figure is **withdrawn**: it missed every distortion the independent grader
+found.
+
+**Who graded.** The 25-claim reference set was graded by a frontier model (Claude Opus 5),
+**not by a human**. That is weaker evidence than hand grading and is stated wherever the
+figure appears, because an 88% that quietly implies human review is worth less than an
+honest 88%.
 
 ## What is being measured
 
@@ -40,10 +46,10 @@ judged against them.
 | 40,000 | 7 | 86% | 0% | 14% |
 
 **Zero DISTORTED across all 85 claims.** A judge that never once uses one of its four
-categories is a warning, not a clean result — and the hand-graded sample confirms it: of the
+categories is a warning, not a clean result — and the graded sample confirms it: of the
 three distortions found by the frontier grader, `gemma3:27b` marked **all three SUPPORTED**.
 
-Agreement with hand grading: **21/25 (84%)**, but the disagreements are not random. The judge
+Agreement with the frontier grader: **21/25 (84%)**, but the disagreements are not random. The judge
 is reliable on straightforward restatements and blind to exactly the error class that
 matters. It is usable as a fabrication detector, not as a faithfulness detector.
 
@@ -82,7 +88,7 @@ not.** Human-authored subtitles, where available, avoid it.
 
 ## A grading error by the frontier grader, recorded rather than quietly fixed
 
-My first hand pass produced 5 UNCLEAR and 4 DISTORTED verdicts. Six of those were wrong: I
+The first grading pass produced 5 UNCLEAR and 4 DISTORTED verdicts. Six of those were wrong: I
 graded from excerpts that my own print statement had truncated to ~900 characters, so I was
 calling text absent that was simply off-screen. Re-graded against the full excerpts, five
 UNCLEARs became SUPPORTED and one DISTORTED became SUPPORTED.
@@ -107,9 +113,9 @@ judge of this class without human calibration.
 ## Open
 
 - **Faithfulness by chunk size** — the question that would validate or undermine the
-  multi-pass defaults. Needs either a much better judge or a larger hand-graded sample
+  multi-pass defaults. Needs either a much better judge or a larger graded sample
   stratified by size.
-- **Written sources are untested.** All 25 hand-graded claims came from speech. Written
+- **Written sources are untested.** All 25 graded claims came from speech. Written
   documentation has cleaner sentence boundaries and no ASR risk, so its error profile is
   probably different and possibly better.
 - **n = 25, one source, one extraction model.** The 88% figure carries a wide interval and
@@ -123,8 +129,8 @@ judge of this class without human calibration.
 The leniency hypothesis was that the judge agreed too easily because it was asked to assess
 rather than to prove. Tested with a prompt that (a) frames the task adversarially, (b)
 requires a **verbatim quotation** of the supporting span, and (c) describes *strengthening*
-as a failure mode in general terms — deliberately not naming the three specific errors found
-by hand, which would be fitting the prompt to the test set.
+as a failure mode in general terms — deliberately not naming the three specific errors the
+grader found, which would be fitting the prompt to the test set.
 
 The quoted spans are then **verified programmatically** against the source: a normalised
 substring check, not another model's opinion.
@@ -178,8 +184,8 @@ first establishing that some judge, somewhere, can detect this error class at al
 
 Consequences:
 
-- The **88% hand-graded figure remains the only trustworthy correctness number** in this
-  repository.
+- The **88% graded figure remains the only trustworthy correctness number** in this
+  repository — with the caveat above about who produced it.
 - **Faithfulness by chunk size stays unmeasured.** Both judges' by-size tables are noise:
   an instrument scoring 0/3 on known errors cannot compare error rates across conditions.
 - Winnow should **not** ship an automated faithfulness check built on a local judge. If
@@ -189,9 +195,10 @@ Consequences:
 
 ## Still open
 
-- **Whether any judge can do this.** A frontier model was not tested. The hand grading was
-  done by one, informally, and found the errors — but that is not the same as a measured
-  head-to-head, and it says nothing about smaller cloud models.
+- **Whether any judge can do this.** No frontier model was tested *as a judge*, under the
+  judge's own prompt and retrieval. The reference grading was done by one informally, and it
+  found the errors — but that is not a measured head-to-head, and it says nothing about
+  smaller cloud models.
 - **A quotation-only pipeline is untried**: force the quote, verify it mechanically, and
   discard the model's verdict entirely, judging support purely by whether a verifiable span
   exists. That uses the model for retrieval rather than for judgement, which is the part it

@@ -78,7 +78,8 @@ def test_the_readme_admits_a_fresh_corpus_sorts_nothing():
     "figure",
     [
         "0.039",  # ms per stored claim per comparison
-        "88",  # percent faithful, hand-graded
+        "88",  # percent faithful, reference-graded
+        "98",  # percent the local judge reported, quoted in the README as withdrawn
     ],
 )
 def test_figures_quoted_in_docs_appear_in_the_record(figure):

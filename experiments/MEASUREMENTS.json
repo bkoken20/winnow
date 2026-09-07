@@ -70,7 +70,10 @@
     "distorted": 3,
     "percent_faithful": 88,
     "local_judge_distortions_caught": "0 of 3, under two opposite prompt designs",
-    "how": "experiments/CORRECTNESS.md -- graded claim-by-claim against the source by a frontier model, NOT a human"
+    "how": "experiments/CORRECTNESS.md -- the 88% is 22 of 25 claims graded one by one against the source by a frontier model (Claude Opus 5), NOT by a human; the 98% is the local judge's own score on all 85, withdrawn",
+    "local_judge_percent_supported": 98,
+    "local_judge_by_chunk_size_percent": "86-100",
+    "local_judge_status": "WITHDRAWN. 83 of 85 claims marked SUPPORTED by gemma3:27b, but it marked all three known distortions SUPPORTED too, so the number measures agreeableness, not faithfulness."
   },
   "quickstart": {
     "source": "fresh clone, empty corpus, README quickstart followed exactly",

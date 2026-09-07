@@ -1,8 +1,8 @@
 """Does forcing the judge to quote its evidence make it detect distortions?
 
 The lenient judge (see CORRECTNESS.md) reported zero DISTORTED across 85 claims and missed
-all three distortions a human found. This tests one hypothesis about why: it was asked to
-assess, not to prove, so it could agree without committing to anything checkable.
+all three distortions the reference grading found. This tests one hypothesis about why: it
+was asked to assess, not to prove, so it could agree without committing to anything checkable.
 
 Two changes:
 
@@ -13,8 +13,8 @@ Two changes:
    A judge that invents its support is caught by string matching.
 
 The prompt describes *strengthening* as a failure mode generically. It deliberately does not
-mention the three specific errors found by hand, which would be fitting the prompt to the
-test set.
+mention the three specific errors the reference grading found, which would be fitting the
+prompt to the test set.
 
 RISK BEING MEASURED IN BOTH DIRECTIONS: an adversarial prompt can trade one error for
 another, flagging faithful claims as distorted. Detection of the three known distortions is
@@ -202,7 +202,7 @@ def main() -> int:
         f = lambda k: f"{100 * c[k] / n:.0f}%" if n else "-"
         print(f"{size:>8,} {n:>5} {f('SUPPORTED'):>11} {f('DISTORTED'):>11} {f('UNSUPPORTED'):>13}")
 
-    # ---- against the hand-graded sample --------------------------------------
+    # ---- against the reference-graded sample ---------------------------------
     human = json.loads(_require_prior("correctness_human_grades.json", "correctness_study.py (then grade the sample)").read_text(encoding="utf-8"))["grades"]
     sample = json.load(open(_require_prior("correctness_blind_sample.json", "correctness_study.py"), encoding="utf-8"))
     lenient = {str(r["n"]): r["verdict"]
@@ -235,7 +235,7 @@ def main() -> int:
     print(f"false alarms on faithful claims: strict {len(false_alarms)}")
 
     if false_alarms:
-        print("\nFALSE ALARMS (hand-graded SUPPORTED, strict judge disagreed):")
+        print("\nFALSE ALARMS (reference grade SUPPORTED, strict judge disagreed):")
         for k, claim, v, reason in false_alarms:
             print(f"  [{k}] {v}: {claim[:80]}")
             print(f"        {reason[:110]}")

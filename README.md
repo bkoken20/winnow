@@ -138,8 +138,9 @@ it only starts being useful after that point.
 
 **Why the last row is not local.** An independent local judge (27B, a different family from
 the extractor) was asked to check extracted claims against their source. It reported
-96–100% faithful and **zero** distortions across 85 claims. Hand-checking found three real
-distortions in a 25-claim sample — the judge had marked **all three** as supported. A
+98% faithful and **zero** distortions across 85 claims. Grading those claims one by one
+against the source found three real distortions in a 25-claim sample — the judge had marked
+**all three** as supported. (That grading was done by a frontier model, not by a human.) A
 stricter prompt, demanding a verbatim supporting quote, did no better: still 0 of 3, plus
 four false alarms. Two opposite prompt designs, same blindness. See
 [experiments/CORRECTNESS.md](experiments/CORRECTNESS.md).

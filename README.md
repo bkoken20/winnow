@@ -26,7 +26,11 @@ before it runs. Winnow does not transcribe, so a video with no captions is a sto
 than a silent empty result, and it does not read PDFs.
 [docs/ACQUISITION.md](docs/ACQUISITION.md) covers both.
 
-It runs locally. With no configuration at all, nothing leaves your machine.
+**Everything except fetching runs on your machine.** Extraction, embeddings and judging
+are local by default and need no API key. The one thing that reaches the network is
+yt-dlp getting captions, which only happens when you pass a URL, and which prints its
+command first. `winnow status` states exactly what leaves your machine under your
+current settings.
 
 ```
 $ winnow ingest https://youtu.be/IH8XmxiwliQ
@@ -36,14 +40,16 @@ running: yt-dlp --skip-download --write-subs --write-auto-subs --sub-format vtt 
 
 [NEW    ] 0.70  A 177 billion parameter model can run effectively on a 5-year-old GPU with 12GB of VRAM.
 [NEW    ] 0.59  The Quen 4 exp model includes an additional 51 billion parameters in the form of a lookup table.
+[NEW    ] 0.63  The Quen 4 exp model architecture includes a phrase book in addition to the standard dicti...
+[NEW    ] 0.68  A 3-bit quantized 177 billion parameter model runs on a server with an RTX 3060 and 61 GB...
 [NEW    ] 0.66  The model runs at 16.5 tokens per second on a used gaming card.
-[VARIANT] 0.80  Speculative decoding gives no benefit when the draft shares the tokenizer family.
-[known  ] 0.94  Quantising below Q4 costs noticeable accuracy on small models.
 ```
 
-That is real output, not an illustration: a 25-minute talk, judged against a corpus built
-from llama.cpp, Ollama and vLLM documentation. The architecture claims are new to that
-corpus. The quantisation one is not.
+Real output, copied from a run, not an illustration: a 25-minute talk judged against a
+corpus built from llama.cpp, Ollama and vLLM documentation. Everything came back `NEW`,
+which is the right answer — that corpus knows about quantisation and inference backends,
+and nothing at all about this architecture. Feed it a video on a subject your corpus does
+cover and most lines read `known`.
 
 ## Quickstart
 
@@ -165,9 +171,10 @@ Winnow is distributed by clone, not as a package — it needs a model server, mo
 
 ```bash
 git clone https://github.com/<you>/winnow.git
-cd Winnow
+cd winnow
 pip install -e .                         # installs the `winnow` command
-pip install -r requirements.txt          # pytest, only needed to run the tests
+pip install -U yt-dlp                    # only to pass URLs; Winnow never installs it for you
+pip install -r requirements.txt          # pytest and pyflakes, only to run the tests
 ```
 
 You also need [Ollama](https://ollama.com) running, with:
@@ -194,12 +201,14 @@ winnow packs                             # domain packs available
 known in your field:
 
 ```bash
-python scripts/fetch_starter_corpus.py --pack ai_tooling --dest ~/notes
-winnow index ~/notes
+python scripts/fetch_starter_corpus.py --pack ai_tooling --dest ./notes --limit 80
+winnow index ./notes --accept-minutes 15
 ```
 
-Long indexing runs are measured before they start: Winnow processes one file, times it,
-projects the whole run, shows you the number, and waits for you to accept it.
+Drop `--limit` for the full starter set — 337 files, about 3.5 hours. Long runs are measured
+before they start: Winnow indexes one file, times it, projects the whole run including
+de-duplication, shows you the number, and will not proceed until you accept a budget that
+covers it.
 
 **Then judge something:**
 
@@ -211,8 +220,8 @@ winnow ingest ./talk/ --new-only                       # or a folder you already
 Judging reads the material three times, at three different chunk sizes, by default. That sounds
 wasteful and is not: different chunk boundaries put different sentences beside each other, so
 later passes find claims the first missed — measured at 39% coverage for one pass against
-92% for three, on a 20-minute talk, for about three extra minutes. Corpus indexing leaves it off, because
-there the same choice is the difference between twelve hours and thirty-five
+92% for three, on a 25-minute talk, for about three extra minutes. Corpus indexing leaves it off, because
+there the same choice is the difference between twelve hours and thirty-five hours
 ([experiments/TWO_PASS.md](experiments/TWO_PASS.md)).
 
 **As the corpus grows**, claims judged "new" when it was thin may turn out to be

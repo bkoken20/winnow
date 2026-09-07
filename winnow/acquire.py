@@ -69,13 +69,25 @@ def yt_dlp_command() -> list[str]:
     )
 
 
+def announce_flushed(message: str) -> None:
+    """Print and FLUSH. The default for `fetch`, and the flushing is the point.
+
+    "The exact command is printed before it runs" is a privacy guarantee, not a progress
+    message -- nothing should reach the network without appearing on screen first. A bare
+    `print` is block-buffered when stdout is a pipe, so piped into a log, `| tee` or CI the
+    announcement sat in the buffer while yt-dlp ran and failed, and the user read the error
+    ABOVE the command that caused it. Observed against a real 429 from YouTube.
+    """
+    print(message, flush=True)
+
+
 def fetch(
     url: str,
     dest: Path,
     *,
     languages: str = "en.*",
     with_video: bool = False,
-    announce=print,
+    announce=announce_flushed,
 ) -> Path:
     """Fetch captions (and optionally video) for `url` into `dest`. Returns the folder.
 

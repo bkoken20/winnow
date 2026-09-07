@@ -64,7 +64,7 @@ is `known`, `0.75`–`0.90` is `variant`, below is `new`.
 | `frame_prompt` | — | File containing the frame-description prompt. Ask for prose, never JSON. |
 | `starter_sources` | — | File listing public sources for seeding a corpus. |
 | `use_frames` | `false` | Whether to sample and describe frames. Leave off unless meaning genuinely lives on screen in your domain. |
-| `min_corpus` | `25` | Claims required in this pack before any novelty verdict is issued. Below it, everything comes back `unknown` rather than `new`. Raise for broad domains, lower for narrow ones. |
+| `min_corpus` | `25` | Claims required before any novelty verdict is issued — counting *other* claims, never the one being judged. Below it, everything comes back `unknown` rather than `new`. So a corpus of exactly 25 still reports `unknown` when re-judged, because each claim then rests on 24 peers. Raise for broad domains, lower for narrow ones. |
 
 ## Command-line flags
 

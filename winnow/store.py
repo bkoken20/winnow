@@ -160,6 +160,11 @@ class Store:
             row = self.conn.execute("SELECT COUNT(*) AS n FROM claims").fetchone()
         return int(row["n"])
 
+    def claim_exists(self, claim_id: str) -> bool:
+        """Is this claim already stored? Indexed primary-key lookup, so effectively free."""
+        row = self.conn.execute("SELECT 1 FROM claims WHERE id = ?", (claim_id,)).fetchone()
+        return row is not None
+
     def iter_claims(self, pack: str) -> Iterable[sqlite3.Row]:
         return self.conn.execute(
             "SELECT id, text, fields_json, source_id FROM claims WHERE pack = ?", (pack,)

@@ -133,11 +133,22 @@ class Judge:
             pack_version=self.config.pack_version,
         )
 
-    def coverage(self) -> Coverage:
-        return Coverage(
-            corpus_claims=self.store.count_claims(self.config.pack),
-            min_for_verdict=self.config.min_corpus,
-        )
+    def coverage(self, claim_id: str = "") -> Coverage:
+        """How much evidence backs a verdict -- excluding the claim being judged.
+
+        A claim is not evidence about itself. During `rejudge` the claim is already stored,
+        so counting the whole corpus overstated every verdict's evidence by one and made
+        the two paths disagree: `ingest` judges before storing and reported N, `rejudge`
+        reported N+1 for the same claim against the same corpus.
+
+        It matters most at the threshold, where a corpus of exactly `min_corpus` would call
+        itself sufficient while every verdict actually rested on one fewer peer than
+        claimed.
+        """
+        stored = self.store.count_claims(self.config.pack)
+        if claim_id and self.store.claim_exists(claim_id):
+            stored -= 1
+        return Coverage(corpus_claims=stored, min_for_verdict=self.config.min_corpus)
 
     def judge_claim(self, claim: Claim, vector: list[float] | None = None) -> Verdict:
         vector = vector if vector is not None else self.embedder.embed(claim.text)
@@ -145,7 +156,7 @@ class Judge:
             self.config.pack, vector, top_k=self.config.top_k, exclude_claim_id=claim.id
         )
         similarity = neighbours[0].similarity if neighbours else 0.0
-        coverage = self.coverage()
+        coverage = self.coverage(claim.id)
 
         if not coverage.sufficient:
             # The corpus cannot support a novelty claim. Saying "new" here would be

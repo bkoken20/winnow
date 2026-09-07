@@ -20,6 +20,7 @@ from .config import CONFIG_FILENAME, Config
 from .cost import RunRefused
 from .llm import OllamaError
 from .acquire import AcquisitionFailed, YtDlpMissing, cache_dir_for, fetch, looks_like_url
+from .media import find_media_file
 from .pipeline import CorpusEmbeddingMismatch
 from .models import NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
 from .packs import InvalidPack, available_packs, find_pack
@@ -205,9 +206,20 @@ def cmd_ingest(args) -> int:
         # A link is the common case: fetch its captions, then treat the result exactly as
         # if the user had produced the folder themselves. Cached per URL.
         target = cache_dir_for(args.path, Path(config.cache_path))
-        if target.exists() and any(target.iterdir()) and not args.refetch:
+        cached = target.exists() and any(target.iterdir())
+        # A cache holding only captions does not satisfy --with-video. Deciding the hit on
+        # "the folder is non-empty" meant the second of these did nothing at all:
+        #     winnow ingest <url>                # captions cached
+        #     winnow ingest <url> --with-video   # "using cached material", no video
+        # and frame description then no-opped, correctly, on the media that was never
+        # fetched. The user's explicit request vanished between two layers each behaving
+        # as designed.
+        needs_video = args.with_video and find_media_file(target) is None
+        if cached and not needs_video and not args.refetch:
             print(f"using cached material in {target}")
         else:
+            if cached and needs_video:
+                print("cached captions found, but --with-video needs the video too")
             fetch(
                 args.path,
                 target,

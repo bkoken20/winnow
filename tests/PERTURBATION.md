@@ -182,6 +182,56 @@ classified by hand, by the person who wrote the tests. Read it as: the suite cat
 roughly half of arbitrary damage, the half it misses is mostly cosmetic, and sampling found
 three genuine holes in an afternoon that five rounds of choosing my own targets did not.
 
+## Round seven — reading winnow/ top to bottom
+
+The source itself, 2,615 lines. Four defects that change behaviour, and one class of stale
+prose: the package still described the tool as it was before it took URLs.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 30 | privacy statement claims nothing leaves the machine | `test_a_fully_local_statement_still_mentions_fetching` | RED |
+| 31 | suggested budget rounded to nearest, not up | `test_the_budget_the_refusal_names_is_actually_accepted` | RED |
+| 32 | `--with-video` satisfied by a captions-only cache | `test_asking_for_video_after_a_captions_only_fetch_actually_fetches_it` | RED |
+| 33 | judge fallback narrowed back to unparseable JSON only | `test_valid_json_that_is_not_an_object_falls_back` | RED |
+| 34 | `flags` taken as a list without checking it is one | `test_flags_that_are_not_a_list_do_not_become_one_flag_per_character` | RED |
+| 35 | a file cited in Python source that does not exist | `test_files_cited_in_the_source_exist` | RED |
+
+\#30 is the one to read twice. The README names `winnow status` as the authority on what
+leaves your machine, and `egress_statement()` answered "FULLY LOCAL. Nothing leaves this
+machine" while `winnow ingest <url>` shells out to yt-dlp. The README had already been
+corrected for that exact sentence; the code it defers to had not.
+
+**Two tests were holding the false claim in place.** They asserted the literal string
+`"FULLY LOCAL"`, so the statement could not be made true without breaking them. The same
+shape appeared again three commits later: a test pinning the word "unparseable" in the
+judge's fallback rationale, which stopped the message widening to cover output that parses
+but is the wrong shape. **A test that pins wording rather than a guarantee does not protect
+the guarantee; it protects the wording, including when the wording is wrong.** Both now
+assert the behaviour.
+
+## Round eight — reading packs/ and scripts/
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 36 | `--limit 0` treated as no limit at all | `test_the_command_line_honours_a_limit_of_zero` | RED* |
+| 37 | `--help` describing the replaced file-selection behaviour | `test_the_help_text_describes_what_the_code_does` | RED |
+| 38 | the frame sentinel's uppercase requirement left undocumented | `test_the_pack_guide_says_the_sentinel_must_be_uppercase` | RED** |
+
+\* **Each guard alone survives.** `--limit 0` was mishandled at two sites, and either one
+being correct is sufficient: the outer check breaks before the first copy, the per-source
+budget computes zero. Only reverting both reproduces the defect. Recorded because a
+single-site mutation coming back green here looks like a test gap and is not one.
+
+\** Removing only the bold lead-in from the guide survived, because "upper case" still stood
+two lines below. Removing the whole paragraph is red. Third time in this repository that a
+mutation which left the checked thing in place has read as a passing grade.
+
+The packs folder was otherwise clean: the shipped pack's schema fields and its extraction
+prompt ask for exactly the same six keys, and its own escape token is correctly filtered.
+The defect was that neither of those couplings was written down anywhere, and one of them --
+the token having to be capitals -- is a trap for pack authors, who are the people least able
+to diagnose it.
+
 ### Two mutations that came back GREEN, and what each meant
 
 Both were faults in the *mutation*, not gaps in the tests — worth recording, because a

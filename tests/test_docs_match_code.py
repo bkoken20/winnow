@@ -73,20 +73,43 @@ def test_every_cli_command_is_documented():
     assert not missing, f"commands absent from the README: {missing}"
 
 
+_UNITS = [
+    "", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+    "eighteen", "nineteen",
+]
+_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+
+
+def _number_words(low: int, high: int) -> dict[str, int]:
+    """Capitalised English number words in [low, high], as {word: value}.
+
+    Generated rather than listed. The hardcoded map this replaces ran out twice, and when it
+    did the test failed on its "no count found" branch -- reporting that the README states no
+    count at all, when in fact it stated one the test could not spell.
+    """
+    words = {}
+    for n in range(low, min(high, 99) + 1):
+        if n < 20:
+            word = _UNITS[n]
+        else:
+            tens, unit = divmod(n, 10)
+            word = _TENS[tens] + (f"-{_UNITS[unit]}" if unit else "")
+        words[word.capitalize()] = n
+    return words
+
+
 def test_readme_perturbation_count_matches_the_record():
     """The README claimed fourteen verified behaviours where the record listed eleven."""
     rows = len(re.findall(r"^\| \d+ \|", PERTURBATION.read_text(encoding="utf-8"), re.MULTILINE))
     readme = README.read_text(encoding="utf-8")
-    words = {
-        "Eleven": 11, "Twelve": 12, "Thirteen": 13, "Fourteen": 14,
-        "Fifteen": 15, "Sixteen": 16, "Seventeen": 17, "Eighteen": 18,
-        "Nineteen": 19, "Twenty": 20,
-        "Twenty-one": 21, "Twenty-two": 22, "Twenty-three": 23, "Twenty-four": 24,
-        "Twenty-five": 25, "Twenty-six": 26, "Twenty-seven": 27, "Twenty-eight": 28,
-        "Twenty-nine": 29, "Thirty": 30,
-    }
-    claimed = [n for word, n in words.items() if f"{word} behaviours" in readme]
-    assert claimed, "the README should state how many behaviours were perturbation-verified"
+    # Generated, not listed. A hardcoded map ran out twice -- and when it did, the failure
+    # was the "no count found" branch below, which describes the wrong problem entirely.
+    claimed = [n for word, n in _number_words(1, 99).items() if f"{word} behaviours" in readme]
+    assert claimed, (
+        "the README should state how many behaviours were perturbation-verified, "
+        "in words (e.g. 'Thirty-eight behaviours')"
+    )
     assert claimed[0] == rows, (
         f"README claims {claimed[0]} perturbation-verified behaviours; "
         f"tests/PERTURBATION.md documents {rows}"

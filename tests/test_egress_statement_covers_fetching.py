@@ -53,3 +53,31 @@ def test_the_readme_still_points_at_this_command_for_the_answer():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "winnow status" in readme
     assert "leaves your machine" in readme
+
+
+def _readme_section(heading: str) -> str:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    body = readme.split(f"\n## {heading}\n", 1)[1]
+    return body.split("\n## ", 1)[0]
+
+
+def test_the_readme_privacy_section_does_not_say_nothing_leaves():
+    """The heading a reader goes to for this question must answer it truthfully."""
+    section = " ".join(_readme_section("Privacy").split()).lower()
+    assert "by default: nothing." not in section, (
+        "the Privacy section answers 'what leaves your machine' with 'nothing', and "
+        "`winnow ingest <url>` runs yt-dlp"
+    )
+    assert "yt-dlp" in section or "fetch" in section, (
+        "the Privacy section must name the one thing that does reach the network"
+    )
+
+
+def test_the_readme_agrees_with_the_code_about_what_leaves():
+    """Both places make the same promise, so they must make it in the same terms."""
+    section = " ".join(_readme_section("Privacy").split()).lower()
+    statement = Config().egress_statement().lower()
+    for term in ("yt-dlp",):
+        assert (term in section) == (term in statement), (
+            f"README Privacy section and egress_statement() disagree about {term!r}"
+        )

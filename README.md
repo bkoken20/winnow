@@ -256,11 +256,20 @@ pack can live outside the repository and never be published.
 ## Privacy
 
 `winnow status` states exactly what leaves your machine under your current settings.
+That command is the authority; this section is a summary of it.
 
-By default: nothing. Embeddings and extraction run against local Ollama. Enable a cloud judge
-and Winnow says plainly, before you use it, that claim text and the most similar claims from
-your corpus will be transmitted — because attaching a personal knowledge base to a remote
-model is precisely the thing you deserve to be warned about beforehand.
+**Your material never leaves by default.** Extraction, embeddings and judging all run
+against local Ollama, and your notes, transcripts and extracted claims are not transmitted
+anywhere.
+
+**One thing does reach the network:** passing a URL to `winnow ingest` runs yt-dlp, which
+contacts that site. It prints the exact command before it runs, and sends nothing of yours
+beyond the link you gave it. Pass a file or a folder instead and nothing is fetched at all.
+
+**A cloud judge is opt-in, and announced.** Enable one and Winnow says plainly, before you
+use it, that the text of each claim judged plus the most similar claims from your corpus
+will be transmitted — because attaching a personal knowledge base to a remote model is
+precisely the thing you deserve to be warned about beforehand.
 
 ## Tests
 
@@ -271,9 +280,9 @@ python -m pytest tests/ -q
 The suite runs offline: no model server, no network. Thirty-eight behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
-not evidence. Three of those twenty-nine were found by mutating the source at random rather
-than by choosing what to test, which is the only part of that file I would trust a stranger
-to believe.
+not evidence. Three of those were found by mutating the source at random rather than by
+choosing what to test, which is the part of that file I would most trust a stranger to
+believe.
 
 ## Licence
 

@@ -12,8 +12,6 @@ already wrote is not what "init" means.
 import json
 from pathlib import Path
 
-import pytest
-
 from winnow import cli
 from winnow.config import Config
 

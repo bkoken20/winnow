@@ -28,10 +28,22 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _tracked_python_files() -> list[str]:
+    """Every .py git would include -- staged AND not-yet-added.
+
+    Checking only `git ls-files` left an ordering hole: a brand new file is invisible until
+    it is staged, so its first run of this suite passes vacuously and it can be committed
+    with a syntax or lint error intact. That happened. `--others --exclude-standard` adds
+    untracked files that are not gitignored, which is exactly the set about to be
+    committed.
+    """
     out = subprocess.run(
-        ["git", "ls-files", "*.py"], cwd=ROOT, capture_output=True, text=True, check=True
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.py"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     )
-    return sorted(out.stdout.split())
+    return sorted(set(out.stdout.split()))
 
 
 TRACKED = _tracked_python_files()

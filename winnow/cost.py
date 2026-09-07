@@ -37,16 +37,49 @@ class Projection:
     sample_bytes: int = 0
     total_bytes: int = 0
 
+    # De-duplication compares each new claim against every claim already stored, so its
+    # cost per claim grows linearly with the corpus and the run's TOTAL dedupe cost grows
+    # quadratically. Measuring the first file -- against a corpus that is at its smallest --
+    # therefore under-reports precisely the large runs this gate exists to protect against.
+    #
+    # Measured: one scan is ~0.039 ms per stored claim, so at 10,000 claims a single
+    # insert spends ~390 ms scanning before any model is called.
+    scan_seconds_per_claim: float = 0.0  # cost of one scan, per claim already stored
+    # What the sampled unit actually took, before its own scan time was subtracted out.
+    # Kept so the subtraction is observable: `unit_seconds` is extraction only, and the
+    # difference between the two is the sample's de-duplication scanning.
+    measured_unit_seconds: float = 0.0
+    corpus_claims_at_start: int = 0
+    expected_new_claims: int = 0
+
     @property
     def scales_by_volume(self) -> bool:
         return self.sample_bytes > 0 and self.total_bytes > 0
 
     @property
-    def total_seconds(self) -> float:
+    def extraction_seconds(self) -> float:
         if self.scales_by_volume:
             bytes_per_second = self.sample_bytes / max(self.unit_seconds, 1e-9)
             return self.total_bytes / bytes_per_second
         return self.unit_seconds * self.units
+
+    @property
+    def dedupe_seconds(self) -> float:
+        """Total scanning across the run.
+
+        Claim i is compared against `start + i` existing claims, so the sum over n new
+        claims is k * (n * start + n^2 / 2).
+        """
+        if self.scan_seconds_per_claim <= 0 or self.expected_new_claims <= 0:
+            return 0.0
+        n = self.expected_new_claims
+        return self.scan_seconds_per_claim * (
+            n * self.corpus_claims_at_start + (n * n) / 2
+        )
+
+    @property
+    def total_seconds(self) -> float:
+        return self.extraction_seconds + self.dedupe_seconds
 
     def human(self) -> str:
         total = self.total_seconds
@@ -59,15 +92,22 @@ class Projection:
     def describe(self) -> str:
         if self.scales_by_volume:
             rate = self.sample_bytes / max(self.unit_seconds, 1e-9)
-            return (
+            base = (
                 f"measured {self.unit_seconds:.2f}s for {self.sample_bytes / 1024:.1f} KB "
                 f"({rate / 1024:.1f} KB/s); {self.units} files totalling "
-                f"{self.total_bytes / 1e6:.1f} MB = about {self.human()}"
+                f"{self.total_bytes / 1e6:.1f} MB"
             )
-        return (
-            f"measured {self.unit_seconds:.2f}s for one unit x {self.units} units "
-            f"= about {self.human()}"
-        )
+        else:
+            base = f"measured {self.unit_seconds:.2f}s for one unit x {self.units} units"
+
+        if self.dedupe_seconds > 0:
+            base += (
+                f"; plus de-duplication scanning over a corpus growing from "
+                f"{self.corpus_claims_at_start:,} to about "
+                f"{self.corpus_claims_at_start + self.expected_new_claims:,} claims "
+                f"({self.dedupe_seconds / 60:.1f} min)"
+            )
+        return base + f" = about {self.human()}"
 
 
 class RunRefused(RuntimeError):

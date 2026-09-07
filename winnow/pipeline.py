@@ -178,12 +178,34 @@ class Pipeline:
         by_size = sorted(files, key=lambda p: p.stat().st_size)
         sample = by_size[len(by_size) // 2]
 
+        corpus_before = self.store.count_claims(self.pack.name)
+
+        # Scan cost is measured BEFORE the sample is indexed, so it describes the corpus the
+        # sample will actually be compared against.
+        scan_cost = self.store.measure_scan_cost(
+            self.pack.name, self.judge.embedder.embed("cost probe")
+        )
+
         first_claims, unit_seconds = time_one(self.index_note, sample)
+        claims_per_file = max(int(first_claims), 1)
+
+        # The measured unit time ALREADY contains the sample's own de-duplication scanning,
+        # so projecting dedupe on top of it counts the same work twice -- which over-stated
+        # a real 56-second run as 125 seconds. Subtract what the sample itself spent
+        # scanning to recover the extraction-only cost, then project scanning separately
+        # across the whole run.
+        sample_scan_seconds = scan_cost * corpus_before * claims_per_file
+        extraction_unit_seconds = max(unit_seconds - sample_scan_seconds, 1e-6)
+
         projection = Projection(
-            unit_seconds=unit_seconds,
+            unit_seconds=extraction_unit_seconds,
+            measured_unit_seconds=unit_seconds,
             units=len(files),
             sample_bytes=sample.stat().st_size,
             total_bytes=total_bytes,
+            scan_seconds_per_claim=scan_cost,
+            corpus_claims_at_start=corpus_before,
+            expected_new_claims=claims_per_file * len(files),
         )
         gate(projection, accepted_by_flag(accept_minutes, projection))
         files = [p for p in files if p != sample]

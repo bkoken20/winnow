@@ -40,7 +40,7 @@ the end.
 | `chunk_chars` | `2000` | How much text goes into one extraction call. **Not** derived from the context window: the window governs what *fits*, this governs what the model actually enumerates. Larger values make the model summarise instead of listing — at 120,000 it recovered 4% of findable claims against 44% at 2,000. |
 | `ingest_extra_passes` | `[1000, 4000]` | Extra passes over the same text at other chunk sizes, used when judging new material. Different boundaries put different sentences beside each other, so each pass finds claims the others miss. Three passes took a 20-minute talk from 39% coverage to 92%, costing about three extra minutes. `[]` disables. |
 | `index_extra_passes` | `[]` | The same, for corpus indexing — **off by default**, because the cost asymmetry is severe: on a 7.5 MB corpus one pass is ~12 hours and three are ~35. Turn it on if corpus quality matters more than a day of compute. |
-| `duplicate_threshold` | `0.93` | Claims closer than this (cosine) to one already in the corpus are not stored. Necessary once more than one pass runs, since passes produce genuine rewordings of the same assertion (~19% of a merged set). `0` disables suppression entirely. |
+| `duplicate_threshold` | `0.93` | Claims closer than this (cosine) to one already in the corpus are not stored. **This is the tool's scaling limit:** each new claim is compared against every stored claim, so indexing cost grows quadratically — measured at ~0.039 ms per stored claim per comparison, i.e. ~390 ms per insert at 10,000 claims. The projection accounts for it; `0` disables suppression and removes the cost. Necessary once more than one pass runs, since passes produce genuine rewordings of the same assertion (~19% of a merged set). `0` disables suppression entirely. |
 
 ## Judging
 
@@ -71,7 +71,7 @@ is `known`, `0.75`–`0.90` is `variant`, below is `new`.
 | flag | applies to | what it does |
 |---|---|---|
 | `--config PATH` | all | Use a different `winnow.json`. |
-| `--accept-minutes N` | `index` | Accept a projected run of N minutes. Winnow times one real file, projects the whole run by text volume, shows you the number, and refuses runs over ~2 minutes until you accept a budget that covers the projection. There is no flag that skips the measurement. |
+| `--accept-minutes N` | `index` | Accept a projected run of N minutes. Winnow times one real file, projects the whole run by text volume **plus de-duplication scanning**, shows you the number, and refuses runs over ~2 minutes until you accept a budget that covers it. There is no flag that skips the measurement, and acceptance does not silence the number. |
 | `--new-only` | `ingest` | Print only claims judged `new`. |
 | `--force` | `init` | Replace an existing config with defaults. Without it, `init` refuses rather than overwriting a file you already own. |
 

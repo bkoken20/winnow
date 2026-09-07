@@ -165,6 +165,21 @@ class Store:
             "SELECT id, text, fields_json, source_id FROM claims WHERE pack = ?", (pack,)
         )
 
+    def measure_scan_cost(self, pack: str, vector: list[float]) -> float:
+        """Seconds one similarity scan costs, PER CLAIM already stored.
+
+        Used to project de-duplication cost across an indexing run. Returns 0.0 for an
+        empty corpus, where there is nothing to scan and nothing to project.
+        """
+        import time
+
+        stored = self.count_claims(pack)
+        if stored == 0:
+            return 0.0
+        started = time.perf_counter()
+        self.similarity_search(pack, vector, top_k=1)
+        return (time.perf_counter() - started) / stored
+
     def embed_models_in_use(self, pack: str) -> set[str]:
         """Which embedding models produced the vectors already stored for this pack.
 

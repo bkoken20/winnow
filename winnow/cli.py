@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -26,6 +28,47 @@ SYMBOL = {
     "known": "known  ",
     NOVELTY_UNKNOWN: "?      ",
 }
+
+
+def _run(func, args) -> int:
+    """Turn predictable failures into a sentence and an exit code, never a traceback.
+
+    Mistyping a folder is the most likely thing a user will do, and it produced a Python
+    stack trace. A tool that answers an ordinary mistake with a traceback reads as broken
+    rather than as strict, and buries the one line that would have helped.
+
+    Genuinely unexpected exceptions are deliberately NOT caught: a crash nobody planned for
+    should be loud and complete, not flattened into a tidy message that hides where it came
+    from.
+    """
+    try:
+        return func(args)
+    except RunRefused as exc:
+        print(str(exc), file=sys.stderr)
+        return 3
+    except OllamaError as exc:
+        print(f"Ollama: {exc}", file=sys.stderr)
+        print(
+            "  Is it running? Check with: curl -s http://localhost:11434/api/tags",
+            file=sys.stderr,
+        )
+        return 4
+    except NotADirectoryError as exc:
+        print(f"not a folder: {exc}", file=sys.stderr)
+        return 2
+    except FileNotFoundError as exc:
+        print(f"not found: {exc}", file=sys.stderr)
+        return 2
+    except json.JSONDecodeError as exc:
+        print(f"malformed JSON: {exc}", file=sys.stderr)
+        return 2
+    except PermissionError as exc:
+        print(f"permission denied: {exc}", file=sys.stderr)
+        return 2
+    except sqlite3.Error as exc:
+        print(f"corpus database error: {exc}", file=sys.stderr)
+        print(f"  corpus path: {Config.load(args.config).corpus_path}", file=sys.stderr)
+        return 5
 
 
 def cmd_status(args) -> int:
@@ -88,16 +131,16 @@ def cmd_index(args) -> int:
     if not folder:
         print("no notes folder given and none configured (set notes_path)", file=sys.stderr)
         return 2
+    if not folder.exists():
+        print(f"no such folder: {folder}", file=sys.stderr)
+        return 2
+    if not folder.is_dir():
+        print(f"not a folder: {folder}", file=sys.stderr)
+        return 2
 
     pipeline = Pipeline.build(config)
     try:
         result = pipeline.index_notes_folder(folder, accept_minutes=args.accept_minutes)
-    except RunRefused as exc:
-        print(str(exc), file=sys.stderr)
-        return 3
-    except OllamaError as exc:
-        print(f"Ollama: {exc}", file=sys.stderr)
-        return 4
     finally:
         pipeline.close()
 
@@ -114,15 +157,14 @@ def cmd_ingest(args) -> int:
     from .pipeline import Pipeline
 
     config = Config.load(args.config)
+    target = Path(args.path)
+    if not target.exists():
+        print(f"no such file or folder: {target}", file=sys.stderr)
+        return 2
+
     pipeline = Pipeline.build(config)
     try:
-        claims, verdicts = pipeline.ingest(Path(args.path))
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
-    except OllamaError as exc:
-        print(f"Ollama: {exc}", file=sys.stderr)
-        return 4
+        claims, verdicts = pipeline.ingest(target)
     finally:
         pipeline.close()
 
@@ -198,7 +240,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    return _run(args.func, args)
 
 
 if __name__ == "__main__":

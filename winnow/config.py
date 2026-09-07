@@ -83,7 +83,10 @@ class Config:
         candidate = Path(path) if path else Path(CONFIG_FILENAME)
         if not candidate.exists():
             return cls()
-        data = json.loads(candidate.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(candidate.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise json.JSONDecodeError(f"{candidate}: {exc.msg}", exc.doc, exc.pos) from None
         known = {f for f in cls.__dataclass_fields__}
         unknown = sorted(set(data) - known)
         if unknown:

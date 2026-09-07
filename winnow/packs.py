@@ -18,6 +18,18 @@ from typing import Any
 PACKS_DIRNAME = "packs"
 
 
+def _load_json(path: Path):
+    """Read JSON, naming the file if it is malformed.
+
+    A bare JSONDecodeError says "line 1 column 2" and nothing else, which is no help at all
+    when the tool reads a config file, a pack manifest and a starter-source list.
+    """
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise json.JSONDecodeError(f"{path}: {exc.msg}", exc.doc, exc.pos) from None
+
+
 @dataclass
 class Pack:
     name: str
@@ -53,7 +65,7 @@ def load_pack(directory: Path) -> Pack:
     manifest_path = directory / "pack.json"
     if not manifest_path.exists():
         raise FileNotFoundError(f"no pack.json in {directory}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = _load_json(manifest_path)
 
     def _read(key: str, default: str = "") -> str:
         filename = manifest.get(key)
@@ -64,7 +76,7 @@ def load_pack(directory: Path) -> Pack:
     starter = []
     starter_file = manifest.get("starter_sources")
     if starter_file and (directory / starter_file).exists():
-        starter = json.loads((directory / starter_file).read_text(encoding="utf-8"))
+        starter = _load_json(directory / starter_file)
 
     return Pack(
         name=manifest["name"],

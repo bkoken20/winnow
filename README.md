@@ -2,10 +2,15 @@
 
 **Tell me what's actually new.**
 
-Most of any talk, paper, video or article restates things you have already met. Winnow pulls
-the claims out of new material, compares them against a corpus of what is already known, and
-tells you which few are genuinely new — instead of handing you another summary of things you
-knew last year.
+Most of any talk or article restates things you have already met. Winnow pulls the claims
+out of new material, compares them against a corpus of what is already known, and tells you
+which few are genuinely new — instead of handing you another summary of things you knew last
+year.
+
+**What it reads:** a transcript or subtitle file (`.txt` `.md` `.vtt` `.srt`), or a folder
+containing one. Video and audio files are used only for sampling frames, and only when a
+transcript sits beside them. It does not transcribe, and it does not read PDFs — converting
+those is your job, and [docs/ACQUISITION.md](docs/ACQUISITION.md) says how.
 
 It runs locally. With no configuration at all, nothing leaves your machine.
 

@@ -1,0 +1,18 @@
+{
+  "name": "ai_tooling",
+  "version": "1",
+  "description": "AI / local-LLM tooling: models, prompting, inference, RAG, hardware",
+  "schema": {
+    "claim": "the assertion itself, stated in one sentence",
+    "kind": "technique | benchmark | limitation | recommendation | observation",
+    "subject": "what the claim is about (a model, a tool, a method, a hardware class)",
+    "condition": "when it holds -- hardware, model size, context length, workload",
+    "evidence": "what the source offers in support: measurement, demo, reasoning, or none",
+    "actionable": "yes if a reader could do something differently because of it"
+  },
+  "extract_prompt": "extract_prompt.txt",
+  "frame_prompt": "frame_prompt.txt",
+  "starter_sources": "starter_sources.json",
+  "use_frames": true,
+  "min_corpus": 25
+}

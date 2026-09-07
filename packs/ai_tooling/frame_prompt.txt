@@ -1,0 +1,18 @@
+Describe what is shown in this frame, in plain prose. Two or three sentences at most.
+
+This material is about AI and local-LLM tooling, so the things worth reporting are:
+
+  - terminal or console output: commands run, flags used, errors, timings, token rates
+  - code editors: what the code is doing, libraries and APIs visible
+  - configuration files and their values
+  - benchmark tables, charts, or measurement output -- report the actual numbers shown
+  - architecture or flow diagrams: what connects to what
+  - hardware or system monitors: VRAM, memory, utilisation figures
+
+If the frame shows none of these -- a talking head, a title card, a logo, a stock photo,
+an empty desktop -- reply with exactly:
+
+NO_TECHNICAL_CONTENT
+
+Do not speculate about anything you cannot actually read in the image. If text is too small
+or blurred to read, say so rather than guessing at it.

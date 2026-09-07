@@ -1,0 +1,112 @@
+{
+  "grader": "Claude (Opus 5), reading each claim against its retrieved source excerpts",
+  "recorded_before_seeing_judge_verdicts": true,
+  "criterion": "faithfulness to the source, not truth about the world",
+  "grades": {
+    "0": {
+      "verdict": "SUPPORTED",
+      "note": "source: 'the card is the cheap part because a 12 gig 3060 is enough. The RAM is where the money goes'"
+    },
+    "1": {
+      "verdict": "SUPPORTED",
+      "note": "REVISED. Transcript literally says '2526 tokens a second' -- an ASR error in the captions for '25-26'. Extraction was faithful; the SOURCE is wrong."
+    },
+    "2": {
+      "verdict": "DISTORTED",
+      "note": "source says 'not crawling'; claim upgrades this to 'without performance degradation', which the video explicitly contradicts elsewhere"
+    },
+    "3": {
+      "verdict": "SUPPORTED",
+      "note": "'speed in exchange for control and privacy'"
+    },
+    "4": {
+      "verdict": "SUPPORTED",
+      "note": "REVISED (my error: I read a truncated excerpt). '512 experts and only 10 of them fire for any given token' is present."
+    },
+    "5": {
+      "verdict": "SUPPORTED",
+      "note": "'3.6 does the steps at three times the speed'; 'give it exact instructions and it doesn't have to decide'"
+    },
+    "6": {
+      "verdict": "SUPPORTED",
+      "note": "'the cloud models will always be faster'"
+    },
+    "7": {
+      "verdict": "SUPPORTED",
+      "note": "3.8 scored 17/17 vs 3.6 at 14; 3.8 is 'the slow one that thinks properly'"
+    },
+    "8": {
+      "verdict": "DISTORTED",
+      "note": "61 GB is what the author's machine HAS, not what the model requires; the video shows it running at 12 GB"
+    },
+    "9": {
+      "verdict": "SUPPORTED",
+      "note": "'51 billion parameters of nothing but entries'; 'the phrase book skips all that' computation"
+    },
+    "10": {
+      "verdict": "SUPPORTED",
+      "note": "'24 gigs gets you full speed answers, 40 gets you full speed prompt reading'"
+    },
+    "11": {
+      "verdict": "SUPPORTED",
+      "note": "verbatim: 'At 32 gigs, it does 22 tokens a second. And at 24 gigs, it still does 22'"
+    },
+    "12": {
+      "verdict": "SUPPORTED",
+      "note": "the stated task and its constraints match the source exactly"
+    },
+    "13": {
+      "verdict": "SUPPORTED",
+      "note": "'On stock, it does 16 1/2 tokens a second'"
+    },
+    "14": {
+      "verdict": "SUPPORTED",
+      "note": "REVISED (my error: truncated excerpt). Free Token/Berkeley-MIT, SSD streaming, pins experts, 'the machine went dark' -- all present."
+    },
+    "15": {
+      "verdict": "SUPPORTED",
+      "note": "verbatim: 'six threads, one per real core and it goes to 24.4 and holds there'"
+    },
+    "16": {
+      "verdict": "SUPPORTED",
+      "note": "prompt-processing figures 34 at 32 GB and 15 at 24 GB appear in the transcript"
+    },
+    "17": {
+      "verdict": "SUPPORTED",
+      "note": "machine spec and quantisation match"
+    },
+    "18": {
+      "verdict": "SUPPORTED",
+      "note": "REVISED (my error: truncated excerpt). 'their version keeps all the experts pinned in RAM, about 50 gigs of it'."
+    },
+    "19": {
+      "verdict": "SUPPORTED",
+      "note": "REVISED (my error: truncated excerpt). 'wrote 1,500 lines in one go... All of that first try blind'."
+    },
+    "20": {
+      "verdict": "SUPPORTED",
+      "note": "verbatim: '16 minutes on the first, 40 on the second, nearly an hour on the third'"
+    },
+    "21": {
+      "verdict": "SUPPORTED",
+      "note": "'no open weights lab has shipped it at this scale before'"
+    },
+    "22": {
+      "verdict": "SUPPORTED",
+      "note": "REVISED (my error: truncated excerpt). 'It can't see what it's building'; 'click on any planet and the camera locks onto it'."
+    },
+    "23": {
+      "verdict": "DISTORTED",
+      "note": "INVERTS the source. The phrase book ADDS 51B parameters (125B -> 177B) and reduces COMPUTATION. The claim says it reduces parameters."
+    },
+    "24": {
+      "verdict": "SUPPORTED",
+      "note": "'common phrases and what they usually mean... you just look it up'"
+    }
+  },
+  "tally": {
+    "SUPPORTED": 22,
+    "DISTORTED": 3
+  },
+  "grading_error_admitted": "My first pass graded 25 claims from excerpts my own print statement had truncated to ~900 characters. Five UNCLEAR verdicts and one DISTORTED were artifacts of not seeing the supporting text. Re-graded against the full excerpts. An underpowered instrument produced false negatives that read as findings -- the same failure this study exists to catch in the model."
+}

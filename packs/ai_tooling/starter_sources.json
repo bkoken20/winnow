@@ -1,0 +1,23 @@
+[
+  {
+    "name": "ollama-docs",
+    "url": "https://github.com/ollama/ollama",
+    "paths": ["docs/"],
+    "license": "MIT",
+    "why": "API surface, model options, and the context-window behaviour that trips everyone."
+  },
+  {
+    "name": "llama.cpp-docs",
+    "url": "https://github.com/ggml-org/llama.cpp",
+    "paths": ["README.md", "docs/"],
+    "license": "MIT",
+    "why": "Quantisation formats, GGUF, sampling parameters, hardware backends."
+  },
+  {
+    "name": "vllm-docs",
+    "url": "https://github.com/vllm-project/vllm",
+    "paths": ["README.md", "docs/"],
+    "license": "Apache-2.0",
+    "why": "Serving, batching, paged attention, throughput claims."
+  }
+]

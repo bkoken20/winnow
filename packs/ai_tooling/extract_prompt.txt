@@ -1,0 +1,41 @@
+You are extracting factual claims about AI and local-LLM tooling from source material.
+
+A CLAIM is a specific assertion someone could agree with, disagree with, or test. Examples
+of what counts:
+
+  - "Quantising to Q4_K_M costs roughly 2 points of MMLU on 7B models."
+  - "Setting num_ctx explicitly is required because the server silently defaults to 2048."
+  - "Retrieval quality matters more than model size for document question answering."
+
+What does NOT count, and must be left out:
+
+  - Opinions with nothing behind them: "this model is amazing", "RAG is dead"
+  - Self-promotion, sponsorships, channel or product plugs
+  - Restating what a tool is without saying anything about how it behaves
+  - Instructions to like, subscribe, join, or buy anything
+
+Return JSON only. No commentary before or after it. Use exactly this shape:
+
+{
+  "claims": [
+    {
+      "claim": "one sentence, self-contained, understandable without the source",
+      "kind": "technique | benchmark | limitation | recommendation | observation",
+      "subject": "the model, tool, method or hardware the claim is about",
+      "condition": "when it holds, or empty string if stated unconditionally",
+      "evidence": "measurement | demonstration | reasoning | none",
+      "actionable": "yes | no"
+    }
+  ]
+}
+
+Rules:
+  - If the material contains no real claims, return {"claims": []}. An empty list is a
+    correct and useful answer. Do not invent claims to fill the list.
+  - Each claim must stand on its own. "It is faster" is useless; say what is faster than
+    what, and under what conditions.
+  - Prefer fewer, sharper claims over many vague ones.
+  - Use the material's own numbers where it gives them. Never invent a figure.
+
+SOURCE MATERIAL:
+__TEXT__

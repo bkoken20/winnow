@@ -158,7 +158,18 @@ def cmd_packs(args) -> int:
     root = Path(config.packs_root) if config.packs_root else None
     names = available_packs(root)
     if not names:
-        print("no packs found")
+        # `packs/` sits beside the package rather than inside it, so a non-editable
+        # `pip install .` installs the code and leaves the packs behind. Every command then
+        # fails, and "no packs found" reads as "this project ships no packs". Found by
+        # actually installing it both ways.
+        print("no packs found.", file=sys.stderr)
+        print(
+            "  Winnow is distributed by clone, and its packs live beside the package rather\n"
+            "  than inside it -- so `pip install .` installs the code without them.\n"
+            "  From your clone, run:  pip install -e .   (note the -e)\n"
+            "  Or set `packs_root` in winnow.json to the folder holding your packs.",
+            file=sys.stderr,
+        )
         return 1
     for name in names:
         pack = find_pack(name, root)
@@ -275,7 +286,8 @@ def cmd_rejudge(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="winnow",
-        description="Judge new material against what you already know.",
+        description="Give it a YouTube link; it tells you what the video says that you "
+                    "do not already know.",
     )
     parser.add_argument("--config", default=None, help="path to winnow.json")
     sub = parser.add_subparsers(dest="command", required=True)

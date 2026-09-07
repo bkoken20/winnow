@@ -73,6 +73,7 @@ is `known`, `0.75`–`0.90` is `variant`, below is `new`.
 | `--config PATH` | all | Use a different `winnow.json`. |
 | `--accept-minutes N` | `index` | Accept a projected run of N minutes. Winnow times one real file, projects the whole run by text volume, shows you the number, and refuses runs over ~2 minutes until you accept a budget that covers the projection. There is no flag that skips the measurement. |
 | `--new-only` | `ingest` | Print only claims judged `new`. |
+| `--force` | `init` | Replace an existing config with defaults. Without it, `init` refuses rather than overwriting a file you already own. |
 
 ## Environment
 

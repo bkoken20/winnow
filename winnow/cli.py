@@ -16,7 +16,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from .config import Config
+from .config import CONFIG_FILENAME, Config
 from .cost import RunRefused
 from .llm import OllamaError
 from .pipeline import CorpusEmbeddingMismatch
@@ -119,9 +119,25 @@ def cmd_status(args) -> int:
 
 
 def cmd_init(args) -> int:
-    config = Config.load(args.config)
-    path = config.save(args.config)
-    print(f"wrote {path}")
+    """Write a starter config -- and refuse to clobber one that already exists.
+
+    `init` used to load the existing file and write it back. Known settings survived that
+    round trip; anything else did not. A user whose config carried `"_comment": "tuned for
+    my corpus, do not change"` lost the note by running a command that reads as harmless.
+
+    Rewriting a file the user already owns is not what "init" means. It now writes only
+    when there is nothing there, and `--force` is the deliberate way to start over.
+    """
+    path = Path(args.config) if args.config else Path(CONFIG_FILENAME)
+
+    if path.exists() and not args.force:
+        print(f"{path} already exists -- not overwriting it.", file=sys.stderr)
+        print("  To see the current settings:  winnow status", file=sys.stderr)
+        print("  To replace it with defaults:  winnow init --force", file=sys.stderr)
+        return 2
+
+    written = Config().save(path)
+    print(f"wrote {written}")
     print("Edit it to point `notes_path` at your notes folder, then run: winnow index")
     return 0
 
@@ -230,7 +246,12 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="configuration, corpus size, and privacy posture").set_defaults(
         func=cmd_status
     )
-    sub.add_parser("init", help="write a starter winnow.json").set_defaults(func=cmd_init)
+    p_init = sub.add_parser("init", help="write a starter winnow.json")
+    p_init.add_argument(
+        "--force", action="store_true",
+        help="replace an existing config with defaults (discards what is there)",
+    )
+    p_init.set_defaults(func=cmd_init)
     sub.add_parser("packs", help="list domain packs").set_defaults(func=cmd_packs)
 
     p_index = sub.add_parser("index", help="build the corpus from a folder of notes")

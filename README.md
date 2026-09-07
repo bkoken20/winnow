@@ -95,7 +95,7 @@ prompt is silently truncated and extraction then reports finding nothing at all.
 ## Start
 
 ```bash
-winnow init                              # writes winnow.json
+winnow init                              # writes winnow.json (refuses to overwrite one)
 winnow status                            # configuration, corpus size, and what leaves the box
 winnow packs                             # domain packs available
 ```

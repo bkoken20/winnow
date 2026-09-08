@@ -139,10 +139,15 @@ class Pipeline:
         """Extract claims from one note and add them to the corpus. Returns claim count."""
         text = path.read_text(encoding="utf-8", errors="replace")
         sid = source_id_for(path)
+        # Extract FIRST. Recording the source before extraction meant a run that died --
+        # most often because a model was never pulled -- still committed the source row, and
+        # `skip_known` then filtered that path out for ever. Fix the model, run again, and
+        # Winnow reported "nothing new to index" and exited 0. A source is recorded when it
+        # has been processed, not when processing was attempted.
+        claims = self.extractor.extract(text, sid)
         self.store.add_source(
             Source(id=sid, pack=self.pack.name, kind="note", path=str(path), title=path.stem)
         )
-        claims = self.extractor.extract(text, sid)
         stored = 0
         for claim in claims:
             vector = self.judge.embedder.embed(claim.text)
@@ -346,15 +351,6 @@ class Pipeline:
             )
 
         sid = source_id_for(target)
-        self.store.add_source(
-            Source(
-                id=sid,
-                pack=self.pack.name,
-                kind="media",
-                path=str(target),
-                title=target.stem,
-            )
-        )
 
         # Judging one item is a matter of minutes, so it runs the thorough pass list even
         # when indexing does not: three passes take a 25-minute talk from 39% coverage to
@@ -377,6 +373,18 @@ class Pipeline:
                 text = f"{text}\n\n[ON-SCREEN CONTENT]\n{described}"
 
         claims = extractor.extract(text, sid)
+
+        # Recorded only now: extraction has succeeded, so this source really was processed.
+        # Claims carry a foreign key to it, so it must exist before anything is stored.
+        self.store.add_source(
+            Source(
+                id=sid,
+                pack=self.pack.name,
+                kind="media",
+                path=str(target),
+                title=target.stem,
+            )
+        )
 
         # PHASE 1 -- judge everything against the corpus AS IT WAS before this material.
         #

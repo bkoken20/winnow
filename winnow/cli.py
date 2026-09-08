@@ -64,10 +64,21 @@ def _run(func, args) -> int:
         return 3
     except OllamaError as exc:
         print(f"Ollama: {exc}", file=sys.stderr)
-        print(
-            "  Is it running? Check with: curl -s http://localhost:11434/api/tags",
-            file=sys.stderr,
-        )
+        # A 404 means the server answered, so telling them to check that it is running
+        # wastes the one moment they are reading the error. It means a model was never
+        # pulled, and the message above already names which one.
+        if getattr(exc, "status", None) == 404:
+            print(
+                "  That model is not pulled. Pull it, then re-run:\n"
+                "    ollama pull <the model named above>\n"
+                "  `winnow status` lists the models this configuration expects.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "  Is it running? Check with: curl -s http://localhost:11434/api/tags",
+                file=sys.stderr,
+            )
         return 4
     except NotADirectoryError as exc:
         print(f"not a folder: {exc}", file=sys.stderr)

@@ -35,7 +35,29 @@ TRANSIENT_STATUS = (403, 429, 500, 502, 503, 504)
 
 
 class OllamaError(RuntimeError):
-    pass
+    """A failure talking to the model server, carrying the server's own account of it.
+
+    `status` is the HTTP status when there was one, so a caller can distinguish "the server
+    is not there" from "the server is fine and the model is not pulled" -- two failures with
+    completely different fixes that used to produce identical advice.
+    """
+
+    def __init__(self, message: str, *, status: int | None = None):
+        super().__init__(message)
+        self.status = status
+
+
+def _detail(exc: urllib.error.HTTPError) -> str:
+    """The server's own message, if it sent one. Never raises: this runs inside error handling."""
+    try:
+        body = exc.read().decode("utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 - a failure to read the body must not mask the error
+        return ""
+    try:
+        message = json.loads(body).get("error")
+    except (json.JSONDecodeError, AttributeError):
+        message = body.strip()[:200] or None
+    return f" -- {message}" if message else ""
 
 
 class ContextWindowNotSet(ValueError):
@@ -78,7 +100,12 @@ class OllamaClient:
             except urllib.error.HTTPError as exc:
                 last_error = exc
                 if exc.code not in TRANSIENT_STATUS:
-                    raise OllamaError(f"{url} returned HTTP {exc.code}") from exc
+                    # Ollama explains itself in the body -- "model 'x' not found" for the
+                    # commonest first-run failure of all. Reducing that to a status code
+                    # threw away the only sentence that says what to do.
+                    raise OllamaError(
+                        f"{url} returned HTTP {exc.code}{_detail(exc)}", status=exc.code
+                    ) from exc
             except urllib.error.URLError as exc:
                 last_error = exc
 

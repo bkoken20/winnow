@@ -38,6 +38,27 @@ class CorpusEmbeddingMismatch(RuntimeError):
     """
 
 
+def announce_destination(config: Config, *, stream=None) -> None:
+    """Say where the data is going, before any of it goes.
+
+    The README promises Winnow states what leaves your machine. `egress_statement()` delivers
+    that and was printed by exactly ONE command -- `status` -- while `index`, `ingest` and
+    `rejudge`, the three that actually transmit transcripts, notes and claims, said nothing.
+    Set `ollama_host` to another machine and every word of your material went there
+    undisclosed.
+
+    It lives here, in the constructor every processing path passes through, rather than in
+    each command: one command remembering and the next forgetting is precisely how this
+    happened, and a rule enforced by memory is not enforced.
+
+    stderr, and flushed, for the same reason the fetch command is -- a disclosure that
+    arrives after the thing it describes is not a disclosure. Progress belongs off stdout so
+    a caller parsing output does not have to filter it.
+    """
+    print(f"destination: {config.egress_statement()}",
+          file=stream or sys.stderr, flush=True)
+
+
 def source_id_for(path: Path) -> str:
     return hashlib.blake2b(str(path.resolve()).encode("utf-8"), digest_size=10).hexdigest()
 
@@ -86,6 +107,7 @@ class Pipeline:
         )
         pipeline = cls(config, store, pack, extractor, judge, llm)
         pipeline.check_corpus_embeddings()
+        announce_destination(config)
         return pipeline
 
     def check_corpus_embeddings(self) -> None:

@@ -145,12 +145,23 @@ class Pipeline:
         # Winnow reported "nothing new to index" and exited 0. A source is recorded when it
         # has been processed, not when processing was attempted.
         claims = self.extractor.extract(text, sid)
+
+        # EVERY fallible step before the first commit. `add_source` and `add_claim` each
+        # commit on their own, so there is no transaction to roll back: the only way to make
+        # a source's completion atomic is to finish the work that can fail first.
+        #
+        # Moving `add_source` after extraction was not enough -- embedding runs after it, so
+        # the same failure one step later had the same consequence: the source recorded, the
+        # claims missing, and `skip_known` filtering the file out of every future run. It is
+        # the same scenario as well, since "the model was never pulled" applies to the
+        # embedding model exactly as it does to the extraction model.
+        vectors = [self.judge.embedder.embed(claim.text) for claim in claims]
+
         self.store.add_source(
             Source(id=sid, pack=self.pack.name, kind="note", path=str(path), title=path.stem)
         )
         stored = 0
-        for claim in claims:
-            vector = self.judge.embedder.embed(claim.text)
+        for claim, vector in zip(claims, vectors):
             if self.is_near_duplicate(vector):
                 continue
             self.store.add_claim(claim, vector, self.judge.embedder.name)
@@ -374,8 +385,20 @@ class Pipeline:
 
         claims = extractor.extract(text, sid)
 
-        # Recorded only now: extraction has succeeded, so this source really was processed.
-        # Claims carry a foreign key to it, so it must exist before anything is stored.
+        # PHASE 1 -- judge everything against the corpus AS IT WAS before this material.
+        #
+        # Judging and storing in one loop let a single transcript become its own evidence:
+        # claim 26 of a 40-claim talk was judged against claims 1-25 of the same talk, which
+        # both lifted a thin corpus over `min_corpus` and made a repeated point read `known`
+        # because the speaker had said it a minute earlier. Nothing is written until every
+        # verdict is decided.
+        verdicts: list[Verdict] = []
+        vectors = [self.judge.embedder.embed(c.text) for c in claims]
+
+        # Recorded only now: extraction AND embedding have both succeeded, so this source
+        # really was processed. Anything earlier marks a source complete while a step that
+        # can still fail is outstanding -- see index_note above. Claims carry a foreign key
+        # to it, so it must exist before anything is stored.
         self.store.add_source(
             Source(
                 id=sid,
@@ -386,15 +409,6 @@ class Pipeline:
             )
         )
 
-        # PHASE 1 -- judge everything against the corpus AS IT WAS before this material.
-        #
-        # Judging and storing in one loop let a single transcript become its own evidence:
-        # claim 26 of a 40-claim talk was judged against claims 1-25 of the same talk, which
-        # both lifted a thin corpus over `min_corpus` and made a repeated point read `known`
-        # because the speaker had said it a minute earlier. Nothing is written until every
-        # verdict is decided.
-        verdicts: list[Verdict] = []
-        vectors = [self.judge.embedder.embed(c.text) for c in claims]
         if judge_claims:
             verdicts = [
                 self._already_known(c, v) or self.judge.judge_claim(c, v)

@@ -52,8 +52,50 @@ the end.
 | `judge_num_ctx` | `8192` | Context window for the tier-1 judge. Same rule as every other `num_ctx`: set it to the judge model's real capacity. |
 | `judge_location` | `local` | `local` or `cloud`. Purely declarative — it does not route anything, it determines what `winnow status` tells you about data leaving your machine. Set it honestly. |
 
-Novelty thresholds are currently constants in `winnow/judge.py`, not config: `0.90` and above
-is `known`, `0.75`–`0.90` is `variant`, below is `new`.
+## Reading the score
+
+Every verdict prints a number:
+
+```
+[NEW    ] 0.70  A 177 billion parameter model can run effectively on a 5-year-old GPU...
+[known  ] 0.94  Quantising below Q4 costs noticeable accuracy on small models.
+```
+
+That number is the **cosine similarity between this claim and the nearest OTHER claim in
+your corpus** — the claim's own stored copy, if it has one, is excluded, because a claim is
+not evidence about itself. It runs 0 to 1.
+
+**Higher means you have seen it before.** It is a similarity score, not a confidence score
+and not a novelty score, so a *low* number beside `NEW` is the consistent reading: nothing in
+your corpus came close. `0.00` means the corpus is empty, or holds nothing comparable.
+
+Three cutoffs sit on that one axis, and their order is the thing to understand:
+
+| score | verdict | stored? |
+|---|---|---|
+| below `0.75` | `new` | yes |
+| `0.75` – `0.90` | `variant` — a recognisable variation of something you have | yes |
+| `0.90` – `0.93` | `known` | **yes** — reported as known, but still added to the corpus |
+| `0.93` and above | `known` | no — suppressed as a near-duplicate (`duplicate_threshold`) |
+
+The two upper numbers were chosen for different jobs and are not interchangeable. `0.90`
+answers *"should I tell the reader they already know this?"*; `0.93` answers *"is this so
+close to something stored that keeping it would just echo the corpus back at itself?"*. The
+gap between them is a real state: a claim can be reported `known` and still be kept.
+
+Below the pack's `min_corpus`, no cutoff is applied at all — the verdict is `unknown` and
+the score is still shown, so you can see how close the nearest match was even when Winnow
+declines to rule on it.
+
+**The thresholds are calibrated for `nomic-embed-text`.** Similarity scales differ between
+embedding models, so these numbers mean something different under another one — which is
+part of why changing `embed_model` under an existing corpus is refused rather than warned
+about.
+
+The novelty cutoffs are constants in `winnow/judge.py` (`SIMILARITY_KNOWN`,
+`SIMILARITY_VARIANT`), not config; `duplicate_threshold` is config. If you are tuning, tune
+`duplicate_threshold` first — it is the one with a measured figure attached above, and the
+one that changes what you actually read.
 
 ## Pack settings (`packs/<name>/pack.json`)
 

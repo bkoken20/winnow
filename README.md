@@ -51,6 +51,11 @@ which is the right answer — that corpus knows about quantisation and inference
 and nothing at all about this architecture. Feed it a video on a subject your corpus does
 cover and most lines read `known`.
 
+The number is the similarity between that claim and the closest thing already in your
+corpus, so **higher means you have seen it before** — which is why the new ones score low.
+The cutoffs, and what happens in each band, are in
+[docs/PARAMETERS.md](docs/PARAMETERS.md#reading-the-score).
+
 ## Quickstart
 
 Fourteen minutes from clone to a real verdict, measured on a 12 GB consumer GPU:

@@ -144,8 +144,12 @@ yt-dlp --playlist-items 1-20 --skip-download --write-auto-subs \
 - **"Unable to extract"** — usually an out-of-date yt-dlp. `pip install -U yt-dlp` first,
   before investigating anything else.
 - **No subtitles written** — the item genuinely has none. See below.
-- **Sign-in required** — some content is gated. Winnow has nothing to say about this; if you
-  choose to authenticate, that is between you and the site.
+- **Members-only or sign-in required** — the content is gated. yt-dlp reports it plainly,
+  e.g. *"This video is available to this channel's members on level: …"*. Winnow has nothing
+  to say about this; if you choose to authenticate, that is between you and the site.
+- **"Sign in to confirm you're not a bot"** — a different thing entirely: YouTube's bot
+  check, not a gate on that video. It usually follows a burst of requests from one address,
+  so it goes away on its own; `--sleep-requests 2` avoids provoking it.
 
 ## Producing a transcript
 

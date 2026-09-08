@@ -158,9 +158,12 @@ def fetch(
             + "\n  ".join(tail)
             + "\n  yt-dlp's own message is above and is the thing to read. Common causes:\n"
             "    - the video is unavailable, private, deleted or region-locked\n"
+            "    - members-only or otherwise gated: you need access to it, which is\n"
+            "      between you and the site. Winnow will not authenticate for you\n"
             "    - 403 or 429: throttling. Wait and retry; Winnow does not retry for you\n"
             "    - 'Unable to extract': yt-dlp is out of date. pip install -U yt-dlp\n"
-            "    - 'Sign in to confirm': the site is gating it; see docs/ACQUISITION.md"
+            "    - 'Sign in to confirm you're not a bot': YouTube's bot check, not a\n"
+            "      gate on the content. See docs/ACQUISITION.md"
         )
 
     subtitles = sorted(dest.glob("*.vtt")) + sorted(dest.glob("*.srt"))

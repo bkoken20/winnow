@@ -105,6 +105,6 @@ def test_a_normal_run_does_not_carry_the_explanation(tmp_path, capsys, monkeypat
     # "0 claims" occurs legitimately in a thin-corpus rationale ("corpus holds 0 claims
     # for pack ..."), so assert the absence of the EXPLANATION rather than of a substring
     # that has other reasons to appear.
-    assert "1 claims extracted" in output
+    assert "1 claims" in output
     assert "domain_packs" not in output
     assert "looks for" not in output

@@ -107,7 +107,9 @@ def test_ingest_command_prints_verdicts_without_touching_a_closed_db(
     output = capsys.readouterr().out
 
     assert exit_code == 0
-    assert "2 claims extracted" in output
+    # Asserts the COUNT is reported, not the sentence around it. Pinning the phrase
+    # is what made a later correction to that wording look like a regression.
+    assert "2 claims" in output
     # The claim text must actually appear -- not an id, and not a crash.
     assert _note_text(7)[:20] in output
     assert "maritime navigation" in output

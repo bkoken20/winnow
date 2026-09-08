@@ -36,7 +36,7 @@ current settings.
 $ winnow ingest https://youtu.be/IH8XmxiwliQ
 
 running: yt-dlp --skip-download --write-subs --write-auto-subs --sub-format vtt ...
-72 claims extracted
+72 claims after de-duplication
 
 [NEW    ] 0.70  A 177 billion parameter model can run effectively on a 5-year-old GPU with 12GB of VRAM.
 [NEW    ] 0.59  The Quen 4 exp model includes an additional 51 billion parameters in the form of a lookup table.
@@ -290,6 +290,25 @@ verified to actually fail when the behaviour backing them is removed — see
 not evidence. Three of those were found by mutating the source at random rather than by
 choosing what to test, which is the part of that file I would most trust a stranger to
 believe.
+
+## Exit codes
+
+`winnow` returns a distinct code per predictable failure, so a script can tell throttling
+from a bad path from a model server that is not running. Anything unexpected is deliberately
+left to raise with a full traceback rather than being flattened into one of these.
+
+| code | meaning | what to do |
+|---|---|---|
+| `0` | success — including "found nothing", which is an answer | — |
+| `1` | no domain packs found | install with `pip install -e .` from the clone, or set `packs_root` |
+| `2` | bad input: missing path, not a folder, malformed JSON, permission denied, or `init` refusing to overwrite | fix the path or the file named in the message |
+| `3` | run refused — the projection exceeded your accepted budget | re-run with the `--accept-minutes` figure the message gives |
+| `4` | Ollama unreachable or erroring | check it is running: `curl -s http://localhost:11434/api/tags` |
+| `5` | corpus database error | the message names the corpus path |
+| `6` | corpus/model mismatch — it was built with a different embedding model. `winnow status` returns this too, so it is usable as a health check | set `embed_model` back, or start a fresh corpus |
+| `7` | invalid pack — it would produce nonsense, so it is refused at load | the message names the file and the problem |
+| `8` | yt-dlp not installed | `pip install -U yt-dlp`; Winnow never installs it for you |
+| `9` | fetch failed — 403/429 throttling, or an out-of-date yt-dlp | wait and retry, or `pip install -U yt-dlp` |
 
 ## Licence
 

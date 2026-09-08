@@ -14,6 +14,7 @@ import argparse
 import json
 import sqlite3
 import sys
+from collections import Counter
 from pathlib import Path
 
 from .config import CONFIG_FILENAME, Config
@@ -22,7 +23,7 @@ from .llm import OllamaError
 from .acquire import AcquisitionFailed, YtDlpMissing, cache_dir_for, fetch, looks_like_url
 from .media import find_media_file
 from .pipeline import CorpusEmbeddingMismatch
-from .models import NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
+from .models import NOVELTY_KNOWN, NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
 from .packs import InvalidPack, available_packs, find_pack
 
 SYMBOL = {
@@ -87,7 +88,15 @@ def _run(func, args) -> int:
 
 
 def cmd_status(args) -> int:
+    """Report configuration and corpus health.
+
+    Returns 6 -- the same code the pipeline raises for it -- when the corpus was built with
+    a different embedding model, because a command that prints UNUSABLE and exits 0 lets
+    `winnow status && winnow ingest ...` proceed on a corpus that cannot be searched. It
+    still never crashes: every other failure is caught and reported as text.
+    """
     config = Config.load(args.config)
+    unusable = False
     print(f"pack          : {config.pack}")
     print(f"corpus        : {config.corpus_path}")
     print(f"notes         : {config.resolved_notes_path() or '(not set)'}")
@@ -117,6 +126,7 @@ def cmd_status(args) -> int:
         # free and has to ask the same question itself.
         foreign = sorted(store.embed_models_in_use(config.pack) - {config.embed_model})
         if foreign:
+            unusable = True
             print(
                 f"              : UNUSABLE -- these claims were embedded with "
                 f"{', '.join(repr(m) for m in foreign)}, not {config.embed_model!r}. "
@@ -126,7 +136,7 @@ def cmd_status(args) -> int:
         store.close()
     except Exception as exc:  # noqa: BLE001 - status must never crash
         print(f"corpus        : unreadable ({exc})")
-    return 0
+    return 6 if unusable else 0
 
 
 def cmd_init(args) -> int:
@@ -204,7 +214,9 @@ def cmd_index(args) -> int:
         return 0
     if result["projection"]:
         print(result["projection"].describe())
-    print(f"indexed {result['files']} files -> {result['claims']} claims")
+    # `claims` is what was STORED: near-duplicates of something already in the
+    # corpus are extracted, judged, and then not kept.
+    print(f"indexed {result['files']} files -> {result['claims']} claims stored")
     return 0
 
 
@@ -250,7 +262,10 @@ def cmd_ingest(args) -> int:
         pipeline.close()
 
     text_of = {c.id: c.text for c in claims}
-    print(f"{len(claims)} claims extracted\n")
+    # "extracted" named a different quantity: this is what survived within-batch
+    # near-duplicate collapsing, which for a three-pass ingest removes real
+    # rewordings of the same assertion.
+    print(f"{len(claims)} claims after de-duplication\n")
 
     if not claims:
         # Finding nothing is a correct answer, and on its own it is indistinguishable from
@@ -295,8 +310,22 @@ def cmd_rejudge(args) -> int:
         verdicts = pipeline.rejudge()
     finally:
         pipeline.close()
-    changed = sum(1 for v in verdicts if v.novelty != NOVELTY_NEW)
-    print(f"re-judged {len(verdicts)} claims ({changed} not new against the current corpus)")
+    # "not new" counted everything that was not NEW, which swept in `unknown` --
+    # the verdict that means the corpus is too thin to rule at all. On a thin corpus
+    # that reported every claim as already known, inverting the rule the whole tool is
+    # built on: a blind spot is not a discovery, and it is not prior knowledge either.
+    counts = Counter(v.novelty for v in verdicts)
+    seen = counts[NOVELTY_KNOWN] + counts[NOVELTY_VARIANT]
+    summary = (
+        f"re-judged {len(verdicts)} claims: {counts[NOVELTY_NEW]} new, "
+        f"{seen} known or variant"
+    )
+    if counts[NOVELTY_UNKNOWN]:
+        summary += (
+            f", {counts[NOVELTY_UNKNOWN]} unknown "
+            "(corpus below the pack's minimum, so no novelty verdict was issued)"
+        )
+    print(summary)
     return 0
 
 

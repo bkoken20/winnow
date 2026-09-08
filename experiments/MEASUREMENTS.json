@@ -112,5 +112,16 @@
     ],
     "basis": "measured extraction throughput of 0.142 / 0.180 / 0.246 KB/s at chunk sizes 1k / 2k / 4k, scaled by corpus size",
     "how": "arithmetic over measured throughput. No 7.5 MB corpus has been indexed end to end here, so these are the right order of magnitude and not a result. Anywhere they are quoted, the word 'projected' has to appear with them."
+  },
+  "duplicate_threshold_in_practice": {
+    "source": "a 25-minute talk on running large models locally, ingested with shipped defaults",
+    "claims_reported": 38,
+    "near_identical_pairs_reaching_the_reader": {
+      "at_0.90_or_above": 5,
+      "at_0.85_or_above": 21
+    },
+    "closest_pair_cosine": 0.925,
+    "note": "duplicate_threshold is 0.93, so a pair at 0.925 is stored and shown. The closest pairs are the same sentence reworded by a different extraction pass.",
+    "how": "cosine over the stored embeddings of one real ingest; not a tuning study, and one run is not grounds for moving the default"
   }
 }

@@ -301,14 +301,14 @@ left to raise with a full traceback rather than being flattened into one of thes
 |---|---|---|
 | `0` | success — including "found nothing", which is an answer | — |
 | `1` | no domain packs found | install with `pip install -e .` from the clone, or set `packs_root` |
-| `2` | bad input: missing path, not a folder, malformed JSON, permission denied, or `init` refusing to overwrite | fix the path or the file named in the message |
+| `2` | bad input: missing path, not a folder, a link Winnow cannot use (a missing or mistyped `https://`), malformed JSON, permission denied, or `init` refusing to overwrite | fix the path or link named in the message |
 | `3` | run refused — the projection exceeded your accepted budget | re-run with the `--accept-minutes` figure the message gives |
 | `4` | Ollama unreachable or erroring | check it is running: `curl -s http://localhost:11434/api/tags` |
 | `5` | corpus database error | the message names the corpus path |
 | `6` | corpus/model mismatch — it was built with a different embedding model. `winnow status` returns this too, so it is usable as a health check | set `embed_model` back, or start a fresh corpus |
 | `7` | invalid pack — it would produce nonsense, so it is refused at load | the message names the file and the problem |
 | `8` | yt-dlp not installed | `pip install -U yt-dlp`; Winnow never installs it for you |
-| `9` | fetch failed — 403/429 throttling, or an out-of-date yt-dlp | wait and retry, or `pip install -U yt-dlp` |
+| `9` | fetch failed — the video is unavailable/private/region-locked, 403/429 throttling, an out-of-date yt-dlp, or sign-in gating | read yt-dlp's own message in the output; the error lists the causes |
 
 ## Licence
 

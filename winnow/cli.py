@@ -20,7 +20,14 @@ from pathlib import Path
 from .config import CONFIG_FILENAME, Config
 from .cost import RunRefused
 from .llm import OllamaError
-from .acquire import AcquisitionFailed, YtDlpMissing, cache_dir_for, fetch, looks_like_url
+from .acquire import (
+    AcquisitionFailed,
+    YtDlpMissing,
+    cache_dir_for,
+    fetch,
+    looks_like_url,
+    why_not_a_url,
+)
 from .media import find_media_file
 from .pipeline import CorpusEmbeddingMismatch
 from .models import NOVELTY_KNOWN, NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
@@ -261,6 +268,13 @@ def cmd_ingest(args) -> int:
                 with_video=args.with_video,
             )
     else:
+        # Before treating it as a path: does it look like a link the user fumbled? Reporting
+        # "no such file or folder: youtu.be\\dQw4w9WgXcQ" answers the wrong question, and
+        # quotes a string they never typed -- Path() has flipped the separators.
+        problem = why_not_a_url(args.path)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
         target = Path(args.path)
         if not target.exists():
             print(f"no such file or folder: {target}", file=sys.stderr)

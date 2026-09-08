@@ -16,6 +16,7 @@ Three things this does NOT do, deliberately:
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -46,6 +47,44 @@ class AcquisitionFailed(RuntimeError):
 def looks_like_url(value: str) -> bool:
     parsed = urlparse(value)
     return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+
+
+# A host-ish token followed by a path: "youtu.be/x", "www.youtube.com/watch?v=x". Deliberately
+# narrow -- it must not fire on an ordinary relative path like "notes/talk.txt", so a dot in
+# the first segment is required and the part after it has to look like a TLD.
+_HOSTLIKE = re.compile(r"^(?:www\.)?[A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}(?:[/?].*)?$")
+
+
+def why_not_a_url(value: str) -> str | None:
+    """Why this string ALMOST looks like a link, or None if it does not look like one.
+
+    Anything that is not a usable URL falls through to the path branch, where a pasted link
+    was reported as "no such file or folder" -- with the separators flipped by `Path()`, so
+    the string quoted back was not even the one the user typed. YouTube displays links
+    without their scheme, which makes dropping it the default mistake rather than an exotic
+    one.
+    """
+    if looks_like_url(value):
+        return None
+
+    scheme, _, rest = value.partition("://")
+    if rest or value.endswith("://"):
+        if scheme in ("http", "https"):
+            return (
+                f"{value!r} has a scheme but no address after it. A full link looks like "
+                "https://youtu.be/VIDEO_ID"
+            )
+        return (
+            f"{value!r} starts with {scheme + '://'!r}, which is not a scheme Winnow can "
+            "fetch. Use http:// or https:// -- most likely https://"
+        )
+
+    if _HOSTLIKE.match(value):
+        return (
+            f"{value!r} looks like a link with no scheme. Try https://{value}\n"
+            "  (YouTube shows links without the https:// part; Winnow needs it.)"
+        )
+    return None
 
 
 def yt_dlp_command() -> list[str]:
@@ -117,8 +156,11 @@ def fetch(
         raise AcquisitionFailed(
             f"yt-dlp exited {result.returncode} for {url}\n  "
             + "\n  ".join(tail)
-            + "\n  A 403 or 429 is usually throttling -- wait and retry. "
-            "'Unable to extract' usually means yt-dlp is out of date: pip install -U yt-dlp"
+            + "\n  yt-dlp's own message is above and is the thing to read. Common causes:\n"
+            "    - the video is unavailable, private, deleted or region-locked\n"
+            "    - 403 or 429: throttling. Wait and retry; Winnow does not retry for you\n"
+            "    - 'Unable to extract': yt-dlp is out of date. pip install -U yt-dlp\n"
+            "    - 'Sign in to confirm': the site is gating it; see docs/ACQUISITION.md"
         )
 
     subtitles = sorted(dest.glob("*.vtt")) + sorted(dest.glob("*.srt"))

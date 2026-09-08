@@ -129,8 +129,23 @@ yt-dlp --playlist-items 1-20 --skip-download --write-auto-subs \
 
 ### When it fails
 
-- **HTTP 403 or 429** — throttling, not a permanent failure. Wait, then retry. Add
-  `--sleep-requests 2` for bulk fetches to avoid triggering it in the first place.
+- **HTTP 403 or 429** — throttling, not a permanent failure. Winnow already passes
+  `--sleep-requests 2`; add more pacing (`--sleep-interval 5 --max-sleep-interval 15`) when
+  driving yt-dlp yourself over many videos.
+
+  **How long:** minutes for a light trip, several hours for a sustained one, occasionally
+  around a day. There is no way to query the remaining time and no appeal, and retrying in a
+  loop extends it — which is why Winnow does not retry for you. A VPN is a poor answer:
+  commercial exit ranges are the most heavily scrutinised addresses there are, so you risk
+  trading a temporary rate limit for a permanent bot check.
+
+  **A known contributor, not yet fixed.** yt-dlp's maintainers report that the subtitle 429
+  affects *automatically translated* captions specifically. Winnow requests
+  `--sub-langs en.*` alongside `--write-auto-subs`, and on a real video that wildcard fetched
+  both `en-orig` and `en` — byte-identical, 206,817 bytes each, so the same captions twice,
+  the second through the translation endpoint. Narrowing that request is likely to reduce
+  429s and halve the transfer. It has not been changed yet because verifying it needs a live
+  fetch, and it is recorded here rather than guessed at.
   Fetching several videos in quick succession is enough to earn one: in testing, three
   fetches within a few minutes produced a 429 that outlasted a minute of waiting, from an
   address that had worked moments before. Winnow deliberately does not retry this for you —

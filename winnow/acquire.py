@@ -24,11 +24,17 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 # Captions only. Small, fast, and enough for everything except frame description.
+#
+# --sleep-requests paces the metadata calls. yt-dlp names it as the flag that addresses the
+# cause of a YouTube 429, and docs/ACQUISITION.md has recommended it to users since before
+# this command used it. The trade is two seconds against a block that lasts minutes at best
+# and several hours at worst, with no way to query the remaining time and no appeal.
 CAPTION_ARGS = [
     "--skip-download",
     "--write-subs",
     "--write-auto-subs",
     "--sub-format", "vtt",
+    "--sleep-requests", "2",
 ]
 
 # Video capped at 720p: frames are downscaled to 640px before any model sees them, so a

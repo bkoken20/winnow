@@ -33,8 +33,12 @@ class Config:
     # Where material fetched from a URL is kept. Cached per URL, so re-running a link does
     # not re-download it, and so you can see what was fetched.
     cache_path: str = "winnow-cache"
-    # Caption languages passed to yt-dlp when fetching from a URL.
-    caption_languages: str = "en.*"
+    # Caption languages passed to yt-dlp when fetching from a URL. `--sub-langs` is a
+    # REGEX: the old default "en.*" matched the original track AND YouTube's machine
+    # translation of it into English, downloading the same captions twice and hitting the
+    # translation endpoint that causes the subtitle 429. "en-orig" is the original alone;
+    # Winnow falls back to "en" by itself when a video has no original English track.
+    caption_languages: str = "en-orig"
 
     ollama_host: str = "http://localhost:11434"
     text_model: str = DEFAULT_TEXT_MODEL

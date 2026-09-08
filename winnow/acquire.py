@@ -37,6 +37,26 @@ CAPTION_ARGS = [
     "--sleep-requests", "2",
 ]
 
+# The ORIGINAL caption track, not a translation of it.
+#
+# `--sub-langs` is a regex. The previous default, "en.*", matched BOTH tracks YouTube offers
+# for an English video:
+#
+#     en-orig   English (Original)   <- the ASR track
+#     en        English              <- YouTube's machine translation, into English
+#
+# So every fetch downloaded the original and a translation of it -- measured byte-identical,
+# 206,817 bytes, same SHA -- and yt-dlp's maintainers name auto-translated captions as the
+# specific cause of the subtitle HTTP 429. That block cost this project most of a day.
+#
+# The same video offers 157 automatic caption languages; all but the original are machine
+# translations, so the wildcard was reaching into exactly the wrong pool.
+DEFAULT_CAPTION_LANGS = "en-orig"
+
+# Used only when the original track does not exist: a video in another language, or one whose
+# English captions are manual rather than automatic. Then the translation IS what is wanted.
+CAPTION_TRANSLATION_FALLBACK = "en"
+
 # Video capped at 720p: frames are downscaled to 640px before any model sees them, so a
 # larger download buys nothing but time and disk.
 VIDEO_ARGS = ["-f", "bv*[height<=720]+ba/b[height<=720]"]
@@ -126,24 +146,7 @@ def announce_flushed(message: str) -> None:
     print(message, flush=True)
 
 
-def fetch(
-    url: str,
-    dest: Path,
-    *,
-    languages: str = "en.*",
-    with_video: bool = False,
-    announce=announce_flushed,
-) -> Path:
-    """Fetch captions (and optionally video) for `url` into `dest`. Returns the folder.
-
-    This ALWAYS runs yt-dlp. Not re-fetching is the caller's decision, not this function's:
-    `cli.cmd_ingest` keeps one folder per URL and skips calling here when the material it
-    needs is already in it. The docstring used to promise "existing files are left alone",
-    which described yt-dlp's own overwrite behaviour rather than anything this code does.
-    """
-    dest = Path(dest)
-    dest.mkdir(parents=True, exist_ok=True)
-
+def _run_yt_dlp(url: str, dest: Path, languages: str, with_video: bool, announce):
     command = [
         *yt_dlp_command(),
         *CAPTION_ARGS,
@@ -155,7 +158,47 @@ def fetch(
     command.append(url)
 
     announce("running: " + " ".join(command))
-    result = subprocess.run(command, capture_output=True, text=True)
+    return subprocess.run(command, capture_output=True, text=True)
+
+
+def _captions_in(dest: Path) -> list[Path]:
+    return sorted(dest.glob("*.vtt")) + sorted(dest.glob("*.srt"))
+
+
+def fetch(
+    url: str,
+    dest: Path,
+    *,
+    languages: str = DEFAULT_CAPTION_LANGS,
+    with_video: bool = False,
+    announce=announce_flushed,
+) -> Path:
+    """Fetch captions (and optionally video) for `url` into `dest`. Returns the folder.
+
+    This ALWAYS runs yt-dlp. Not re-fetching is the caller's decision, not this function's:
+    `cli.cmd_ingest` keeps one folder per URL and skips calling here when the material it
+    needs is already in it.
+
+    Asks for the ORIGINAL track and falls back to a translation only when there is none --
+    see DEFAULT_CAPTION_LANGS. The fallback costs one extra request and happens only for
+    material whose original language is not English.
+    """
+    dest = Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    result = _run_yt_dlp(url, dest, languages, with_video, announce)
+
+    if result.returncode == 0 and not _captions_in(dest) and languages == DEFAULT_CAPTION_LANGS:
+        # No original English track: the video is in another language, so the machine
+        # translation is the only English there is -- and now it is what the reader wants,
+        # rather than a duplicate of something already fetched.
+        announce(
+            f"no {DEFAULT_CAPTION_LANGS!r} track; trying {CAPTION_TRANSLATION_FALLBACK!r} "
+            "(YouTube's machine translation)"
+        )
+        result = _run_yt_dlp(
+            url, dest, CAPTION_TRANSLATION_FALLBACK, with_video, announce
+        )
 
     if result.returncode != 0:
         tail = (result.stderr or result.stdout or "").strip().splitlines()[-3:]
@@ -172,7 +215,7 @@ def fetch(
             "      gate on the content. See docs/ACQUISITION.md"
         )
 
-    subtitles = sorted(dest.glob("*.vtt")) + sorted(dest.glob("*.srt"))
+    subtitles = _captions_in(dest)
     if not subtitles:
         raise AcquisitionFailed(
             f"no captions available for {url}.\n"

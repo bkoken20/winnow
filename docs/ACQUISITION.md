@@ -139,13 +139,17 @@ yt-dlp --playlist-items 1-20 --skip-download --write-auto-subs \
   commercial exit ranges are the most heavily scrutinised addresses there are, so you risk
   trading a temporary rate limit for a permanent bot check.
 
-  **A known contributor, not yet fixed.** yt-dlp's maintainers report that the subtitle 429
-  affects *automatically translated* captions specifically. Winnow requests
-  `--sub-langs en.*` alongside `--write-auto-subs`, and on a real video that wildcard fetched
-  both `en-orig` and `en` — byte-identical, 206,817 bytes each, so the same captions twice,
-  the second through the translation endpoint. Narrowing that request is likely to reduce
-  429s and halve the transfer. It has not been changed yet because verifying it needs a live
-  fetch, and it is recorded here rather than guessed at.
+  **Winnow asks for the original track, which avoids most of this.** yt-dlp's maintainers
+  report that the subtitle 429 affects *automatically translated* captions specifically.
+  `--sub-langs` is a regex, and the old default `en.*` matched both tracks YouTube offers for
+  an English video — `en-orig` (the ASR track) and `en` (its machine translation back into
+  English) — fetching the same captions twice, measured byte-identical. The default is now
+  `en-orig`, and Winnow falls back to `en` only when no original English track exists.
+
+  Measured after the change, on an address that was rate-limited at the time: the `en-orig`
+  request succeeded while the `en` request on another video returned 429. If a video's
+  original language is not English, its English captions ARE a translation, so there is no
+  way around the throttled endpoint — that video simply has to wait.
   Fetching several videos in quick succession is enough to earn one: in testing, three
   fetches within a few minutes produced a 429 that outlasted a minute of waiting, from an
   address that had worked moments before. Winnow deliberately does not retry this for you —

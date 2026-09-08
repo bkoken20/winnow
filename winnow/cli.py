@@ -405,7 +405,35 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def make_output_encodable() -> None:
+    """Stop a console's code page from destroying a finished run.
+
+    Windows consoles default to a legacy code page -- cp1252 on English installs, cp1254 on
+    Turkish, cp932 on Japanese -- and Python encodes stdout with it. Winnow prints claim
+    text, so one accent, umlaut, curly quotation mark or non-Latin script raised
+    UnicodeEncodeError: a traceback about a character, AFTER the fetch, the extraction and
+    the judging had all completed. cp1252 is the default on a plain English Windows install,
+    so this was the common case rather than an exotic one.
+
+    UTF-8 first, because a modern terminal displays it correctly. Where the stream will not
+    take it, fall back to replacing the characters it cannot encode -- a mangled glyph is a
+    poor outcome; losing the whole run to it is a worse one.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:  # a pipe or capture object without the 3.7+ API
+            continue
+        try:
+            reconfigure(encoding="utf-8")
+        except (ValueError, LookupError, OSError):
+            try:
+                reconfigure(errors="replace")
+            except (ValueError, LookupError, OSError):
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    make_output_encodable()
     parser = build_parser()
     args = parser.parse_args(argv)
     return _run(args.func, args)

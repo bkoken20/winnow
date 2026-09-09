@@ -17,6 +17,29 @@ import time
 from dataclasses import dataclass
 
 
+def human_seconds(seconds: float) -> str:
+    """A duration as a person would say it.
+
+    Used both for what a run is PROJECTED to cost and for what a finished run ACTUALLY
+    cost, so that the two are written the same way and read as comparable. Two
+    implementations would be two things to keep in step, and the gate's wording is the one
+    users have already been shown.
+
+    The sub-second case exists because measured time reaches this and projected time never
+    did: `gate` returns without printing below 120 seconds, so the smallest number this had
+    ever formatted was two minutes. Handed 0.4 it said "0 seconds", which is a false
+    statement about a run that took some time, and it read like a broken clock rather than
+    a fast run.
+    """
+    if seconds < 1:
+        return "under a second"
+    if seconds < 90:
+        return f"{seconds:.0f} seconds"
+    if seconds < 5400:
+        return f"{seconds / 60:.1f} minutes"
+    return f"{seconds / 3600:.1f} hours"
+
+
 @dataclass(frozen=True)
 class Projection:
     """A projected run cost.
@@ -103,12 +126,7 @@ class Projection:
         return self.extraction_seconds + self.dedupe_seconds
 
     def human(self) -> str:
-        total = self.total_seconds
-        if total < 90:
-            return f"{total:.0f} seconds"
-        if total < 5400:
-            return f"{total / 60:.1f} minutes"
-        return f"{total / 3600:.1f} hours"
+        return human_seconds(self.total_seconds)
 
     def describe(self) -> str:
         if self.scales_by_volume:

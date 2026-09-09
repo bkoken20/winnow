@@ -166,35 +166,68 @@ class Extractor:
     def passes(self) -> list[int]:
         return [self.chunk_chars, *self.extra_passes]
 
-    def extract(self, text: str, source_id: str) -> list[Claim]:
+    def extract(self, text: str, source_id: str, *, progress=None) -> list[Claim]:
+        """Every claim in `text`, de-duplicated across all passes.
+
+        `progress`, when given, is called once as each pass begins with keyword arguments
+        `number`, `total`, `chunks` and `chunk_chars`. It exists because a three-pass
+        ingest of a 25-minute talk is about 4.5 minutes (experiments/TWO_PASS.md) during
+        which this loop is the only thing happening, and a run that says nothing for four
+        minutes is indistinguishable from one that has hung.
+
+        A callback rather than a print: this is a library, and where output goes is the
+        caller's decision. The passes were previously flattened into a single list of
+        chunks before the loop, which is why there was nothing here that knew where one
+        pass ended and the next began.
+
+        The loop stays INSIDE one call, and `seen` therefore spans the passes. That is not
+        incidental: passes exist to cut the same text at different boundaries, so they
+        return the same claim repeatedly on purpose. Measured on a 30-paragraph transcript
+        at 2,000 / 1,000 / 4,000 characters -- one call yields 30 claims, three separate
+        calls yield 90, of which 60 are exact duplicates that each then cost an embedding,
+        a judge call and a corpus row.
+        """
         claims: list[Claim] = []
         seen: set[str] = set()
-        chunks = [
-            chunk
-            for size in self.passes
-            for chunk in split_text(text, chunk_size_for(self.num_ctx, size))
-        ]
-        for chunk in chunks:
-            prompt = self.pack.render_extract_prompt(chunk)
-            raw = self.llm.generate(
-                self.model, prompt, num_ctx=self.num_ctx, as_json=True
-            )
-            for item in parse_claims_json(raw):
-                statement = str(item.get("claim") or item.get("statement") or "").strip()
-                if not statement:
-                    continue
-                cid = claim_id(self.pack.name, source_id, statement)
-                if cid in seen:
-                    continue
-                seen.add(cid)
-                fields = {k: v for k, v in item.items() if k not in ("claim", "statement")}
-                claims.append(
-                    Claim(
-                        id=cid,
-                        pack=self.pack.name,
-                        source_id=source_id,
-                        text=statement,
-                        fields=fields,
-                    )
+        sizes = self.passes
+        for number, size in enumerate(sizes, start=1):
+            # The EFFECTIVE size, not the requested one. A small-context model caps the
+            # chunk, and reporting the size that was asked for would describe a run that
+            # did not happen.
+            effective = chunk_size_for(self.num_ctx, size)
+            chunks = split_text(text, effective)
+            if progress is not None:
+                progress(
+                    number=number,
+                    total=len(sizes),
+                    chunks=len(chunks),
+                    chunk_chars=effective,
                 )
+            for chunk in chunks:
+                prompt = self.pack.render_extract_prompt(chunk)
+                raw = self.llm.generate(
+                    self.model, prompt, num_ctx=self.num_ctx, as_json=True
+                )
+                for item in parse_claims_json(raw):
+                    statement = str(
+                        item.get("claim") or item.get("statement") or ""
+                    ).strip()
+                    if not statement:
+                        continue
+                    cid = claim_id(self.pack.name, source_id, statement)
+                    if cid in seen:
+                        continue
+                    seen.add(cid)
+                    fields = {
+                        k: v for k, v in item.items() if k not in ("claim", "statement")
+                    }
+                    claims.append(
+                        Claim(
+                            id=cid,
+                            pack=self.pack.name,
+                            source_id=source_id,
+                            text=statement,
+                            fields=fields,
+                        )
+                    )
         return claims

@@ -99,6 +99,24 @@ def announce_transcript(path: Path, *, stream=None) -> None:
     print(f"transcript: {path}", file=stream or sys.stderr, flush=True)
 
 
+def announce_pass(*, number, total, chunks, chunk_chars, stream=None) -> None:
+    """Say which extraction pass has started, and how much work it is.
+
+    "pass 2 of 3" alone does not distinguish ten seconds from two minutes, so the number of
+    model calls is part of the line: that is the quantity the wait is actually made of.
+
+    stderr, like every other announcement here -- a caller reading the claims off stdout
+    should not have to filter progress out of them.
+    """
+    calls = "call" if chunks == 1 else "calls"
+    print(
+        f"pass {number} of {total}: {chunk_chars}-character chunks, "
+        f"{chunks} model {calls}",
+        file=stream or sys.stderr,
+        flush=True,
+    )
+
+
 def announce_destination(config: Config, *, stream=None) -> None:
     """Say where the data is going, before any of it goes.
 
@@ -593,7 +611,7 @@ class Pipeline:
             if described:
                 text = f"{text}\n\n[ON-SCREEN CONTENT]\n{described}"
 
-        claims = extractor.extract(text, sid)
+        claims = extractor.extract(text, sid, progress=announce_pass)
 
         # PHASE 1 -- judge everything against the corpus AS IT WAS before this material.
         #

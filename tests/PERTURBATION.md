@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**192 behaviours, over thirty-three rounds.** Every mutation was detected except those recorded
+**202 behaviours, over thirty-four rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1629,3 +1629,87 @@ what those 27 files actually were.
 A sorted list of EXTENSIONS, not filenames — a folder with 400 stragglers prints one line.
 Reported on successful runs too, not only failures: a folder of 400 notes with three files in
 another format is exactly where a quiet skip costs the most.
+
+## Round thirty-four -- the operator asked why an ingest printed no timing
+
+He ran `winnow ingest https://youtu.be/IH8XmxiwliQ` and asked why nothing said how long it
+took. It did not, because the cost gate was built for `index` and `rejudge` on the reasoning
+that an ingest is one item and therefore short. This project's own measurement disagrees --
+`experiments/TWO_PASS.md` puts the shipped three-pass ingest of a 25-minute talk at 4.5
+minutes, and three passes is the DEFAULT for ingest. So the ordinary case was `transcript:`
+followed by four and a half minutes of nothing.
+
+**No gate was added.** A confirmation prompt on a four-minute run is ceremony people learn to
+click through, which is exactly what the 120-second threshold in `cost.gate` exists to avoid.
+What was missing here was never permission. It was information.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 193 | the pass announcement never fires | `test_each_extraction_pass_is_announced` | RED (5) |
+| 194 | `ingest` stops passing the callback | `test_each_extraction_pass_is_announced` | RED (3) |
+| 195 | the summary drops the elapsed time | `test_a_finished_ingest_says_what_it_cost` | RED |
+| 196 | the line says the pass number and no quantity | `test_the_progress_says_how_much_work_the_pass_is` | RED |
+| 197 | the pass total hardcoded rather than counted | `test_the_passes_announced_are_the_passes_configured` | RED (2) |
+| 198 | the size REQUESTED announced, not the size used | `test_the_size_announced_is_the_size_it_chunked_at` | RED |
+| 199 | `seen` moved inside the pass loop | `test_one_claim_found_by_three_passes_is_stored_once` | RED |
+| 200 | the extractor prints on its own | `test_the_extractor_is_silent_without_a_callback` | RED (3) |
+| 201 | a sub-second run reported as "0 seconds" | `test_a_duration_is_written_one_way` | RED (3) |
+| 202 | a second duration formatter reinstated | `test_the_projection_uses_the_same_formatter` | RED (3) |
+
+### Row 202 survived the first time, and the test was the reason
+
+The mutation puts a duplicate of the old body back inside `Projection.human()`, missing both
+the hours branch and the sub-second branch. It **SURVIVED the whole 806-test suite**, because
+the agreement test asserted a single value:
+
+```
+projection = Projection(unit_seconds=30.0, units=5)     # 150 seconds
+assert projection.human() == human_seconds(projection.total_seconds)
+```
+
+150 seconds is a value the two implementations render identically. Agreement at one point
+detects a duplicate that disagrees AT THAT POINT and nothing else. Parametrised across every
+branch -- sub-second, seconds, both sides of 90, minutes, both sides of 5400, hours -- it
+kills the mutation. The same family as the symmetric fixture in round nineteen and the
+structural sweep for unfalsifiable assertions above: a check that passes for a reason
+unrelated to the behaviour it names.
+
+### What the walk found that the tests did not
+
+**The formatter had never met a small number.** `human_seconds` was extracted from
+`Projection.human()`, which only ever formatted PROJECTIONS -- and `gate` returns without
+printing below 120 seconds, so the smallest duration it had ever rendered was two minutes.
+Pointed at a measured elapsed time it met 0.4 seconds and said **"0 seconds"**, a false
+statement about a run that took time. The new test asserting the summary line was GREEN on
+that output, because a regex looking for a duration anywhere in the run's output matches
+"0 seconds" perfectly well.
+
+**Two behaviours the restructure depends on had no test at all.** The passes had been one
+flattened comprehension; splitting them into a visible per-pass loop meant deciding, for the
+first time explicitly, that `seen` spans the passes. Measured before writing the guard, on a
+30-paragraph transcript at 2,000 / 1,000 / 4,000 characters:
+
+```
+one call, seen shared across passes : 30 claims, 10 model calls
+one call per pass, seen per call    : 90 claims, 10 model calls
+duplicates the shared seen collapsed: 60
+```
+
+That is the design that was rejected -- letting the pipeline drive one `extract` call per
+pass, which needs no new parameter and no callback. It would have tripled the claim count of
+every three-pass ingest, and each duplicate then costs an embedding, a judge call and a
+corpus row. The number is why the callback exists.
+
+The second was the chunk size REPORTED. A small context window caps it, and announcing the
+size that was asked for would describe a run that did not happen: at `text_num_ctx=3500` a
+pass configured at 4,000 actually chunks at 3,200. The existing test used 32,768, where
+nothing is capped and both readings pass -- a test incapable of telling them apart.
+
+### And a defect in the perturbation harness itself
+
+The battery asserts that a mutation landed BEFORE it restores the file. Row 200's mutation is
+additive, so the mutated file still contains the anchor, the landing check failed, the run
+aborted -- and `winnow/extract.py` was left holding a stray `print`. Found by reading `git
+diff` rather than by anything failing. The harness now restores first and judges after, and
+an additive mutation is written so the anchor is BROKEN: the new line goes between two lines
+of a two-line anchor, never appended to a one-line one.

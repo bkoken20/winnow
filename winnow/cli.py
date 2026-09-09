@@ -14,11 +14,12 @@ import argparse
 import json
 import sqlite3
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
 from .config import CONFIG_FILENAME, Config, InvalidConfiguration
-from .cost import RunRefused
+from .cost import RunRefused, human_seconds
 from .llm import OllamaError
 from .acquire import (
     AcquisitionFailed,
@@ -355,6 +356,12 @@ def cmd_index(args) -> int:
 
 
 def cmd_ingest(args) -> int:
+    # Started before anything else in the command, including the lazy import below:
+    # everything after this line is time the user spends waiting, and the figure printed at
+    # the end should be the one they experienced rather than a subset of it. A fetch that
+    # took two minutes is part of what the run cost.
+    started = time.perf_counter()
+
     from .pipeline import Pipeline
 
     config = Config.load(args.config)
@@ -430,7 +437,16 @@ def cmd_ingest(args) -> int:
     # "extracted" named a different quantity: this is what survived within-batch
     # near-duplicate collapsing, which for a three-pass ingest removes real
     # rewordings of the same assertion.
-    print(f"{len(claims)} claims after de-duplication\n")
+    # No gate on this number, deliberately. `cost.gate` refuses a run before it starts
+    # and asks for a budget; that is right for indexing a folder, which can be an
+    # afternoon, and wrong for one video, which is minutes. A confirmation prompt on every
+    # four-minute run is ceremony people learn to click through, which is the exact failure
+    # the gate's 120-second threshold exists to avoid. What was missing here was never
+    # permission -- it was information.
+    print(
+        f"{len(claims)} claims after de-duplication in "
+        f"{human_seconds(time.perf_counter() - started)}\n"
+    )
 
     if not claims:
         # Finding nothing is a correct answer, and on its own it is indistinguishable from

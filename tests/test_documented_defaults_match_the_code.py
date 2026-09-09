@@ -73,9 +73,11 @@ def test_the_acquisition_page_does_not_recommend_the_pattern_it_warns_about():
     warns = "matched both tracks" in ACQUISITION or "downloaded" in ACQUISITION
     assert warns, "guard: the warning this test pairs with has gone"
 
+    # Match the RECOMMENDATION form -- the pattern used as an actual flag value -- not any
+    # mention of it. The first version matched the substring and was tripped by this page's
+    # own explanation of why not to use it, which is the "grep matches my own prose" trap.
     recommendations = [
-        line for line in ACQUISITION.splitlines()
-        if "en.*" in line and "old default" not in line and "matched both" not in line
+        line for line in ACQUISITION.splitlines() if '--sub-langs "en.*"' in line
     ]
     assert not recommendations, (
         "these lines still recommend the caption pattern the same page says caused "

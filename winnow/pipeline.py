@@ -39,6 +39,18 @@ class CorpusEmbeddingMismatch(RuntimeError):
     """
 
 
+@dataclass(frozen=True)
+class RejudgeResult:
+    """What a re-judge did, and what it cost to be told it would.
+
+    `projection` is None at tier 0, where there is nothing to project: no model call is made
+    and the run is a second's work. At tier 1 it is the estimate the gate was shown.
+    """
+
+    verdicts: list[Verdict]
+    projection: "Projection | None"
+
+
 def foreign_embed_models(store, pack: str, current: str) -> list[str]:
     """Stored embedding models that are not the one in use, sorted.
 
@@ -594,26 +606,58 @@ class Pipeline:
         # which reads from a connection that is already closed.
         return claims, verdicts
 
-    def rejudge(self) -> list[Verdict]:
+    def rejudge(self, accept_minutes: float | None = None) -> "RejudgeResult":
         """Re-judge every claim against the corpus as it stands now.
 
         A claim marked 'new' when the corpus was thin may be a restatement once the corpus
-        has grown. Re-judging is cheap with embeddings, so a stale verdict is a choice
-        rather than a constraint.
-        """
-        verdicts: list[Verdict] = []
+        has grown, so a stale verdict should be a choice rather than a constraint.
 
-        for row in list(self.store.iter_claims(self.pack.name)):
-            claim = Claim(
-                id=row["id"],
-                pack=self.pack.name,
-                source_id=row["source_id"],
-                text=row["text"],
+        AT TIER 0 that is cheap: one embedding comparison per claim, no model call, and no
+        gate -- a projection shown for a run that takes a second teaches people to click
+        past the one that matters.
+
+        AT TIER 1 it is one MODEL CALL per claim. On the 383-claim corpus this was developed
+        against that is 383 of them, which is exactly the shape of run `index` refuses to
+        start without showing you a number first. It used to start anyway. The docstring was
+        half the defect: it said "re-judging is cheap with embeddings", which is true of tier
+        0 and was read as true of the command.
+
+        The sample's verdict is stored only after the gate passes, so a refused run leaves
+        the corpus exactly as it found it -- and it is not judged a second time afterwards.
+        """
+        rows = list(self.store.iter_claims(self.pack.name))
+        if not rows:
+            return RejudgeResult(verdicts=[], projection=None)
+
+        def judge_row(row) -> Verdict:
+            return self.judge.judge_claim(
+                Claim(
+                    id=row["id"],
+                    pack=self.pack.name,
+                    source_id=row["source_id"],
+                    text=row["text"],
+                )
             )
-            verdict = self.judge.judge_claim(claim)
+
+        projection: Projection | None = None
+        verdicts: list[Verdict] = []
+        remaining = rows
+
+        if self.judge.tier == 1:
+            # Measure one real claim, project the rest, and refuse until the budget covers
+            # it. Nothing is written until the gate has passed.
+            first, unit_seconds = time_one(judge_row, rows[0])
+            projection = Projection(unit_seconds=unit_seconds, units=len(rows))
+            gate(projection, accepted_by_flag(accept_minutes, projection))
+            self.store.add_verdict(first)
+            verdicts.append(first)
+            remaining = rows[1:]
+
+        for row in remaining:
+            verdict = judge_row(row)
             self.store.add_verdict(verdict)
             verdicts.append(verdict)
-        return verdicts
+        return RejudgeResult(verdicts=verdicts, projection=projection)
 
     def close(self) -> None:
         self.store.close()

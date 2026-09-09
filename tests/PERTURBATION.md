@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**147 behaviours, over twenty-five rounds.** Every mutation was detected except those recorded
+**153 behaviours, over twenty-six rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1164,3 +1164,62 @@ a privacy statement, and it is written down rather than left to be rediscovered.
 The loopback test now lives in one function shared by the privacy statement and the HTTP
 client. Two implementations of "is this local" is how two answers start to disagree — the
 same fault as round twenty-three, avoided rather than repeated.
+
+## Round twenty-six — a command that was cheap at one tier and unmeasured at the other
+
+`index` measures one file, projects the run, shows the number and refuses until a budget
+covers it. `rejudge` walked every claim and called `judge_claim` on each. At tier 0 that is
+embeddings only and genuinely cheap — which is what the docstring said:
+
+> "Re-judging is cheap with embeddings, so a stale verdict is a choice rather than a
+> constraint."
+
+Set `judge_model` and every claim becomes a model call. On the 383-claim corpus this was
+developed against, 383 of them, with no projection and no gate. **The docstring was half the
+defect**: it described tier 0 and was read as describing the command.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 148 | a tier-1 rejudge not measured before it runs | `test_a_tier_one_rejudge_is_projected` | RED (2) |
+| 149 | the verdict stored before the gate | `test_a_refused_rejudge_changes_nothing` | RED |
+| 150 | the measured claim judged a second time | `test_the_measured_claim_is_judged_once` | RED |
+| 151 | tier 0 gated as well | `test_a_tier_zero_rejudge_is_not_gated` | RED |
+| 152 | the budget dropped between the flag and the gate | `test_the_budget_on_the_command_line_reaches_the_gate` | RED |
+| 153 | the flag renamed away from what the message says | `test_the_cli_offers_the_budget_flag` | RED |
+
+### Rows 149 and 152 survived the first battery
+
+Both are guarantees I believed, had checked by hand in the walk, and had not written down.
+
+**149.** Moving `add_verdict(first)` to before the gate left the suite green. The
+corpus-is-untouched rule was established for `index` in an earlier round and recorded there;
+nothing held it for this command, so the ordering was free to be reversed by anyone.
+
+**152.** `pipeline.rejudge()` with the budget dropped left the suite green: the flag was
+parsed and nothing proved it reached the gate. The refusal message tells the user to re-run
+with `--accept-minutes N` — a flag the command accepts and ignores sends them in a circle,
+and is worse than no flag at all.
+
+The walk had verified both. **A walk is evidence about the code as it stands; a test is
+evidence about the code as it will stand.** Neither replaces the other.
+
+### What the walk established
+
+```
+judge.tier = 1
+verdicts 33, model calls 33, claims 33   -> one call per claim
+projection: unit=0.0215s x 33 = 0.709s   (reality: 33 x 0.02 = 0.66s)
+
+refused run:  corpus digest 4f4a2ff16a23700b -> 4f4a2ff16a23700b  UNCHANGED
+              counts (33, 33) -> (33, 33)
+              model calls spent measuring: 1
+tier 0:       projection=None  verdicts=33
+empty corpus: verdicts=0  projection=None  model calls=0
+```
+
+And one honest limitation, recorded rather than smoothed over: the sample is `rows[0]`, which
+is whatever order SQLite returns, not a median as `index` uses. Measured claim lengths in that
+corpus span **28 to 86 characters, a 3.1x spread**, against the 18x spread across files that
+made median sampling necessary there — and a judge call's cost is dominated by the prompt
+template and the neighbour claims rather than by the claim itself. Unit times count is the
+honest estimator here; if that stops being true, this paragraph is where to look.

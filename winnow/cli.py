@@ -412,7 +412,8 @@ def cmd_rejudge(args) -> int:
     config = Config.load(args.config)
     pipeline = Pipeline.build(config)
     try:
-        verdicts = pipeline.rejudge()
+        result = pipeline.rejudge(accept_minutes=args.accept_minutes)
+        verdicts = result.verdicts
     finally:
         pipeline.close()
     # "not new" counted everything that was not NEW, which swept in `unknown` --
@@ -517,11 +518,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_ingest.add_argument("--new-only", action="store_true", help="show only novel claims")
     p_ingest.set_defaults(func=cmd_ingest)
 
-    sub.add_parser(
+    p_rejudge = sub.add_parser(
         "rejudge",
         help="re-judge all claims against the current corpus",
         parents=[common],
-    ).set_defaults(func=cmd_rejudge)
+    )
+    p_rejudge.add_argument(
+        "--accept-minutes",
+        type=float,
+        default=None,
+        help="accept a projected run of this many minutes (shown to you first)",
+    )
+    p_rejudge.set_defaults(func=cmd_rejudge)
     return parser
 
 

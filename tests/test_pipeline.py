@@ -160,7 +160,7 @@ def test_rejudge_revisits_every_claim(tmp_path):
     write_notes(tmp_path / "notes", 30)
     pipeline.index_notes_folder(tmp_path / "notes")
 
-    verdicts = pipeline.rejudge()
+    verdicts = pipeline.rejudge().verdicts
 
     assert len(verdicts) == 30
     assert all(v.judge.pack_version for v in verdicts)

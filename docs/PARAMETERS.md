@@ -127,7 +127,7 @@ similarity reaches 5, so de-duplication was off and nothing said so.
 | flag | applies to | what it does |
 |---|---|---|
 | `--config PATH` | all | Use a different `winnow.json`. Accepted on either side of the command: `winnow --config x.json ingest URL` and `winnow ingest URL --config x.json` are the same thing. |
-| `--accept-minutes N` | `index` | Accept a projected run of N minutes. Winnow times one real file, projects the whole run by text volume **plus de-duplication scanning**, shows you the number, and refuses runs over ~2 minutes until you accept a budget that covers it. There is no flag that skips the measurement, and acceptance does not silence the number. |
+| `--accept-minutes N` | `index`, `rejudge` | Accept a projected run of N minutes. Winnow times one real file, projects the whole run by text volume **plus de-duplication scanning**, shows you the number, and refuses runs over ~2 minutes until you accept a budget that covers it. There is no flag that skips the measurement, and acceptance does not silence the number. `rejudge` is gated the same way, but only at tier 1: with a `judge_model` set it is one model call per claim, while at tier 0 it is embeddings only and runs without ceremony. |
 | `--new-only` | `ingest` | Print only claims judged `new`. |
 | `--with-video` | `ingest` | Also download the video so frames can be described. Much larger; captions alone are enough unless the pack uses frames. |
 | `--refetch` | `ingest` | Ignore cached material for this URL and fetch it again. |

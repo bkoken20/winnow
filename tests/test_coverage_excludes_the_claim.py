@@ -72,7 +72,7 @@ def test_rejudge_coverage_excludes_the_claim_being_judged(tmp_path):
     seed(pipeline, tmp_path, 30)
     stored = pipeline.store.count_claims("ai_tooling")
 
-    verdicts = pipeline.rejudge()
+    verdicts = pipeline.rejudge().verdicts
 
     assert verdicts, "nothing was re-judged"
     for verdict in verdicts:
@@ -120,7 +120,7 @@ def test_the_two_paths_agree_on_the_same_claim(tmp_path):
     _, ingest_verdicts = pipeline.ingest(material)
     from_ingest = ingest_verdicts[0].coverage.corpus_claims
 
-    rejudged = {v.claim_id: v for v in pipeline.rejudge()}
+    rejudged = {v.claim_id: v for v in pipeline.rejudge().verdicts}
     from_rejudge = rejudged[ingest_verdicts[0].claim_id].coverage.corpus_claims
 
     assert from_ingest == from_rejudge, (
@@ -135,6 +135,6 @@ def test_a_lone_claim_has_no_evidence_at_all(tmp_path):
     pipeline = build(tmp_path)
     seed(pipeline, tmp_path, 1)
 
-    verdicts = pipeline.rejudge()
+    verdicts = pipeline.rejudge().verdicts
     assert verdicts[0].coverage.corpus_claims == 0
     pipeline.close()

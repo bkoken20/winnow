@@ -50,15 +50,76 @@ def _privacy_section() -> str:
     return README[start:end]
 
 
+def _code_only(path: Path) -> str:
+    """The file with comments and string literals removed.
+
+    A comment that mentions a socket is not a socket. This check refused `winnow/cli.py`
+    because a comment there describes a traceback that used to end "in a sleep or a socket
+    read" -- the sixth time in this repository that a check has found my own prose, and the
+    second in one day: the markdown link checks did it this morning and were fixed by
+    scanning prose with code removed. This is the mirror.
+
+    `tokenize` rather than a regular expression, because it knows where a string ends and a
+    pattern only guesses.
+    """
+    import io
+    import tokenize
+
+    source = path.read_text(encoding="utf-8")
+    lines = source.splitlines(keepends=True)
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        # A file this cannot parse is a bigger problem than this test, and pyflakes will
+        # say so. Fall back to the whole text rather than silently scanning nothing.
+        return source
+
+    # Blank the spans IN PLACE. Joining the surviving tokens with spaces was the first
+    # attempt and it broke adjacency -- `subprocess.run` became `subprocess . run`, so the
+    # pattern matched nothing and the check would have passed on any repository at all.
+    # Every other character keeps its column this way.
+    for token in tokens:
+        if token.type not in (tokenize.COMMENT, tokenize.STRING):
+            continue
+        (start_row, start_col), (end_row, end_col) = token.start, token.end
+        for row in range(start_row - 1, end_row):
+            line = lines[row]
+            begin = start_col if row == start_row - 1 else 0
+            finish = end_col if row == end_row - 1 else len(line)
+            lines[row] = line[:begin] + " " * (finish - begin) + line[finish:]
+    return "".join(lines)
+
+
 def _files_that_could_reach_out() -> set[str]:
     """Anything that opens a URL or runs another program. Deliberately over-broad."""
     found = set()
     for folder in ("winnow", "scripts"):
         for path in sorted((ROOT / folder).glob("*.py")):
-            text = path.read_text(encoding="utf-8")
-            if re.search(r"urllib\.request|http\.client|\bsocket\b|subprocess\.(run|Popen)", text):
+            code = _code_only(path)
+            if re.search(r"urllib\.request|http\.client|\bsocket\b|subprocess\.(run|Popen)", code):
                 found.add(f"{folder}/{path.name}")
     return found
+
+
+def test_the_scanner_reads_code_and_not_comments(tmp_path):
+    """Guard the guard, in both directions.
+
+    A scanner that stripped too much would find nothing and this whole check would pass on
+    any repository at all.
+    """
+    talks_about_it = tmp_path / "talks.py"
+    talks_about_it.write_text(
+        "# this module once used a socket and subprocess.run\n"
+        'MESSAGE = "we do not call urllib.request here"\n'
+        "VALUE = 1\n",
+        encoding="utf-8",
+    )
+    does_it = tmp_path / "does.py"
+    does_it.write_text("import subprocess\nsubprocess.run(['ls'])\n", encoding="utf-8")
+
+    pattern = r"urllib\.request|http\.client|\bsocket\b|subprocess\.(run|Popen)"
+    assert not re.search(pattern, _code_only(talks_about_it)), "a comment was read as code"
+    assert re.search(pattern, _code_only(does_it)), "real code was stripped away"
 
 
 def test_the_list_of_outbound_paths_is_complete():

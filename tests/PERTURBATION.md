@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**163 behaviours, over twenty-eight rounds.** Every mutation was detected except those recorded
+**169 behaviours, over twenty-nine rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1343,3 +1343,57 @@ fix for a problem, sitting directly above an unfixed instance of the same proble
 It no longer answers "is this a host?" — the host pattern settles that by requiring a path.
 It answers "is this so obviously a file that mentioning the link reading would be noise?"
 `talk.txt` gets no hint, which is what an earlier round decided and its test still asserts.
+
+## Round twenty-nine — Ctrl-C, and a check that read a comment as a socket
+
+`index` on a real notes folder is minutes to hours, and Ctrl-C is the documented way to
+change your mind about it — the projection is shown before the work starts and there is no
+other exit. What it printed was a `KeyboardInterrupt` stack trace through `pipeline.py`,
+`extract.py` and `llm.py`, ending in a sleep or a socket read. That reads as a crash, and it
+buries the question the user actually has: **is the work I have already paid for still
+there?**
+
+It is: `index_notes_folder` commits per file and `skip_known` filters out what is stored, so
+an interrupted index resumes. Nothing said so, and a stack trace is not where anyone looks
+for reassurance. Exit 130 now — 128 + SIGINT — with the message, and the code in the table.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 164 | the interrupt escaping again | `test_an_interrupt_is_not_a_traceback` | RED (38) |
+| 165 | a different exit code for an interrupt | `test_an_interrupt_is_not_a_traceback` | RED (2) |
+| 166 | the message announcing the stop and nothing else | `test_it_says_the_work_so_far_is_kept` | RED |
+| 167 | the README documenting a code the tool does not return | `test_the_exit_code_is_documented` | RED (2) |
+| 168 | comments no longer excluded from the outbound scan | `test_the_scanner_reads_code_and_not_comments` | RED (2) |
+| 169 | the scanner discarding the code it does not strip | `test_the_scanner_reads_code_and_not_comments` | RED (2) |
+
+Row 164's blast radius is the finding in itself: an escaping `KeyboardInterrupt` does not fail
+a test, it **aborts pytest**. The suite did not report a failure; it stopped.
+
+### Rows 168 and 169: the sixth time a check has matched my own prose
+
+The fix above added a comment saying the old traceback ended "in a sleep or a **socket**
+read". `test_the_list_of_outbound_paths_is_complete` then refused `winnow/cli.py` as a file
+that might reach the network. It cannot; the word is in a comment about a defect.
+
+That is the sixth occurrence in this repository and the **second today** — the markdown link
+checks did it this morning and were fixed by scanning prose with the code removed. This is
+the mirror: scan code with the prose removed, using `tokenize`, which knows where a string
+ends rather than guessing.
+
+**And the first version of that fix was worse than the bug.** Joining the surviving tokens
+with spaces turned `subprocess.run` into `subprocess . run`, so the pattern matched nothing:
+the check would have found no outbound file in any repository and passed everywhere. The
+guard test written beside it said so on the first run — *"real code was stripped away"* —
+before the change was committed. The spans are blanked in place now, so every other character
+keeps its column.
+
+### Row 166 survived first, on an `or`
+
+The assertion was `"kept" in said or "already" in said`. Deleting the sentence that says the
+work survives left the suite green, because the sentence AFTER it happens to contain
+"already". A user has two questions — did I lose the work, and how do I carry on — and the
+message owes both answers, so the test now requires both.
+
+The first replacement mutation was also ill-formed: it cut one source line out of a string
+that spans four, and "picks up where it" survived in the fragment above. Replacing the whole
+message with its headline is the mutation that removes the behaviour.

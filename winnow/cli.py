@@ -74,6 +74,23 @@ def _run(func, args) -> int:
     """
     try:
         return func(args)
+    except KeyboardInterrupt:
+        # Not an error and not an unexpected exception: it is the documented way to change
+        # your mind about a run, and the only one -- the projection is shown before the
+        # work starts and there is no other exit from it. What it printed was a
+        # KeyboardInterrupt stack trace through pipeline.py, extract.py and llm.py, ending
+        # in a sleep or a socket read, which reads as a crash and buries the one question
+        # the user actually has: is the work I have already paid for still there?
+        #
+        # 130 is 128 + SIGINT, the convention for a process ended by an interrupt.
+        print(
+            "\nstopped: interrupted (Ctrl-C).\n"
+            "  Anything already stored is kept -- `winnow index` picks up where it "
+            "stopped, because it records each file as it finishes and skips what is "
+            "already in the corpus.",
+            file=sys.stderr,
+        )
+        return 130
     except CorpusEmbeddingMismatch as exc:
         print(f"corpus/model mismatch: {exc}", file=sys.stderr)
         return 6

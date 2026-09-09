@@ -308,7 +308,7 @@ deserve to be told about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. 163 behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. 169 behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by
@@ -332,6 +332,7 @@ left to raise with a full traceback rather than being flattened into one of thes
 | `6` | corpus/model mismatch — it was built with a different embedding model. `winnow status` returns this too, so it is usable as a health check | set `embed_model` back, or start a fresh corpus |
 | `7` | invalid pack — it would produce nonsense, so it is refused at load | the message names the file and the problem |
 | `8` | yt-dlp not installed | `pip install -U yt-dlp`; Winnow never installs it for you |
+| `130` | stopped with Ctrl-C. Anything already stored is kept, and `winnow index` resumes where it stopped | re-run the same command |
 | `9` | fetch failed — the video is unavailable/private/region-locked, 403/429 throttling, an out-of-date yt-dlp, or sign-in gating | read yt-dlp's own message in the output; the error lists the causes |
 
 ## Releasing

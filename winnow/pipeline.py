@@ -17,6 +17,7 @@ from .llm import OllamaClient, OllamaError
 from .media import (
     TEXT_EXTENSIONS,
     FFmpegMissing,
+    FramesTimedOut,
     extract_frames,
     find_media_file,
     load_transcript,
@@ -412,8 +413,16 @@ class Pipeline:
                     Path(tmp),
                     every_seconds=self.config.frame_every_seconds,
                     limit=self.config.max_frames,
+                    timeout_seconds=self.config.frame_timeout_seconds,
                 )
             except FFmpegMissing:
+                return ""
+            except FramesTimedOut as exc:
+                # Frames are the optional half, so this degrades rather than failing the
+                # ingest -- but it SAYS so. A silent empty result here is indistinguishable
+                # from a video that genuinely had no frames worth describing, and only one
+                # of those is worth a user's attention.
+                print(f"frames skipped: {exc}", file=sys.stderr, flush=True)
                 return ""
             if not frames:
                 return ""

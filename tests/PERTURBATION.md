@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**181 behaviours, over thirty-one rounds.** Every mutation was detected except those recorded
+**187 behaviours, over thirty-two rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1517,3 +1517,52 @@ The perturbation for the test job's timeout used `timeout-minutes: 10\n\n    ste
 file it is followed by `strategy:` — `steps:` is the BUILD job. ANCHOR MISS (0x), which is the
 harness doing its job: an unasserted anchor would have written the file back unchanged and
 reported the guard as passing.
+
+## Round thirty-two — the same unbounded call, in the module next door
+
+`ffmpeg_available()` has always passed `timeout=20` to its version probe. `extract_frames` —
+the call that actually decodes a video — passed none. A truncated download or a container
+ffmpeg cannot read leaves it spinning, and Winnow waits with no output and no end.
+
+**This is the yt-dlp defect from round twenty-seven, one module over.** That fix did not
+travel, because I fixed the file the review named instead of the class of call. A third
+review had to point at it.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 182 | ffmpeg unbounded again | `test_ffmpeg_is_given_a_time_limit` | RED (2) |
+| 183 | the timeout raised as a bare `RuntimeError` | `test_a_hung_ffmpeg_raises_something_the_caller_understands` | RED (2) |
+| 184 | the message not naming the setting | `test_a_hung_ffmpeg_raises_something_the_caller_understands` | RED |
+| 185 | the ingest not surviving a hung ffmpeg | `test_an_ingest_survives_a_hung_ffmpeg_and_says_so` | RED |
+| 186 | the skipped frames not announced | `test_an_ingest_survives_a_hung_ffmpeg_and_says_so` | RED |
+| 187 | the configured limit dropped on the way to ffmpeg | `test_the_configured_limit_reaches_ffmpeg` | RED |
+
+Frames are the OPTIONAL half — `describe_frames` documents that it returns an empty string
+whenever frames are unavailable, so that an ingest holding a transcript does not fail for the
+want of them. A timeout belongs in that set, which is why it has its own exception class
+rather than a bare `TimeoutExpired`: the caller must be able to catch it BY NAME, or a
+genuine bug escaping the same call gets swallowed with it. And it is announced, because a
+silent "no frames" is indistinguishable from a video that had none.
+
+### The walk's own prose contradicted the walk's own output
+
+Section 3 of the walk printed `ai_tooling use_frames = True` and then, three lines below, a
+sentence I had written by hand: *"frames are off for the shipped pack, so this bound protects
+a path that only a frames pack reaches."*
+
+The shipped pack turns frames ON. Every `winnow ingest --with-video` against the default pack
+decodes through that call. The review filed this as low-priority hardening, I repeated that
+framing without checking it, and the measurement was already on the screen beside the claim.
+
+**A number printed next to a sentence does not make the sentence true.** Read the number.
+
+### Row 187 is the same wiring gap, for the third time in one session
+
+Dropping `timeout_seconds=self.config.frame_timeout_seconds` from the pipeline's call left the
+suite green: the parameter's default is the same constant, so nothing changes unless a user
+configured something else — and no test did.
+
+The rejudge budget had this gap. The fetch timeout had this gap. After the second, this
+record says in as many words: *"An argument that is parsed, accepted and dropped needs its own
+test, every time."* Then I did not write one. The test now configures 97 seconds, which
+nothing else could produce, and watches it reach the subprocess.

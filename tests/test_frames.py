@@ -155,7 +155,7 @@ def test_ingest_writes_nothing_into_the_user_s_folder(tmp_path, monkeypatch):
     pipeline = build(tmp_path, llm, monkeypatch)
     captured = {}
 
-    def fake_ffmpeg(media, out_dir, every_seconds=30, limit=40):
+    def fake_ffmpeg(media, out_dir, every_seconds=30, limit=40, **kwargs):
         captured["out_dir"] = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         jpeg = out_dir / "frame_00001.jpg"
@@ -181,7 +181,7 @@ def test_frame_sampling_honours_the_configured_limits(tmp_path, monkeypatch):
     pipeline = build(tmp_path, llm, monkeypatch, frame_every_seconds=90, max_frames=5)
     seen = {}
 
-    def fake_ffmpeg(media, out_dir, every_seconds=30, limit=40):
+    def fake_ffmpeg(media, out_dir, every_seconds=30, limit=40, **kwargs):
         seen.update(every_seconds=every_seconds, limit=limit)
         return []
 

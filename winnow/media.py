@@ -18,6 +18,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from .config import DEFAULT_FRAME_TIMEOUT
+
 # Extensions treated as media. Subtitles are explicitly NOT media -- see find_media_file.
 MEDIA_EXTENSIONS = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4a", ".mp3", ".wav", ".flac"}
 SUBTITLE_EXTENSIONS = {".vtt", ".srt", ".ass", ".ssa", ".sub"}
@@ -30,6 +32,16 @@ TEXT_EXTENSIONS = {".txt", ".md", ".markdown", ".mdx"}
 
 class FFmpegMissing(RuntimeError):
     pass
+
+
+class FramesTimedOut(RuntimeError):
+    """ffmpeg did not finish within `frame_timeout_seconds`.
+
+    Its own class rather than a bare `subprocess.TimeoutExpired`, because the caller has to
+    catch it BY NAME: `Pipeline.describe_frames` degrades to no frames for any reason frames
+    are unavailable, and a timeout belongs in that set -- but only if it can be told apart
+    from a genuine bug escaping the same call.
+    """
 
 
 def find_media_file(folder: Path) -> Path | None:
@@ -176,9 +188,25 @@ def ffmpeg_available() -> bool:
 
 
 def extract_frames(
-    media: Path, out_dir: Path, every_seconds: int = 30, limit: int = 40
+    media: Path,
+    out_dir: Path,
+    every_seconds: int = 30,
+    limit: int = 40,
+    timeout_seconds: int = DEFAULT_FRAME_TIMEOUT,
 ) -> list[Frame]:
-    """Sample frames with ffmpeg. Returns [] for audio-only input rather than raising."""
+    """Sample frames with ffmpeg. Returns [] for audio-only input rather than raising.
+
+    BOUNDED. `ffmpeg_available` above has always passed a timeout to its version probe; this
+    call, the one that actually decodes a video, had none. A truncated download, a malformed
+    container or a stream ffmpeg cannot make sense of leaves it spinning, and Winnow waits
+    with no output and no end -- the same defect as the unbounded yt-dlp call in
+    `winnow.acquire`, in the module next door, which was fixed without this one travelling.
+
+    A timeout is `FramesTimedOut`, not a bare `subprocess.TimeoutExpired`, so that
+    `Pipeline.describe_frames` can catch it by name: frames are the optional half of an
+    ingest and losing them must not lose the transcript, but a genuine bug escaping the same
+    call must not be swallowed with them.
+    """
     if not ffmpeg_available():
         raise FFmpegMissing(
             "ffmpeg not found on PATH. On Windows, after installing it you must open a new "
@@ -186,15 +214,25 @@ def extract_frames(
         )
     out_dir.mkdir(parents=True, exist_ok=True)
     pattern = str(out_dir / "frame_%05d.jpg")
-    subprocess.run(
-        [
-            "ffmpeg", "-loglevel", "error", "-y", "-i", str(media),
-            "-vf", f"fps=1/{every_seconds},scale=640:-1",
-            "-frames:v", str(limit), pattern,
-        ],
-        capture_output=True,
-        check=False,
-    )
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-loglevel", "error", "-y", "-i", str(media),
+                "-vf", f"fps=1/{every_seconds},scale=640:-1",
+                "-frames:v", str(limit), pattern,
+            ],
+            capture_output=True,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise FramesTimedOut(
+            f"ffmpeg did not finish sampling {media.name} within {timeout_seconds} "
+            "seconds.\n"
+            "  Sampling decodes through the file, so a long recording is genuinely slow -- "
+            "raise `frame_timeout_seconds` in winnow.json if that is what this is. A file "
+            "that never finishes is usually truncated or in a container ffmpeg cannot read."
+        ) from exc
     frames = []
     for i, p in enumerate(sorted(out_dir.glob("frame_*.jpg"))):
         frames.append(Frame(index=i, seconds=i * every_seconds, path=p))

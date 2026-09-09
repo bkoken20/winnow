@@ -36,6 +36,16 @@ JUDGE_LOCATIONS = ("local", "cloud")
 # link. It exists to bound a HANG, not to be tight.
 DEFAULT_FETCH_TIMEOUT = 600
 
+# How long ffmpeg may take to sample frames from one media file. THE definition, imported by
+# `winnow.media`, for the same reason as the fetch timeout above: two constants that agree
+# until one of them is edited is not one number.
+#
+# NOT MEASURED. Sampling frames decodes through the file, so a three-hour recording is
+# minutes of work and a short talk is seconds; nothing here establishes a typical case, and
+# no media file ships with the repository to measure one on. Five minutes bounds a HANG --
+# a truncated download or a container ffmpeg cannot parse -- and is not meant to be tight.
+DEFAULT_FRAME_TIMEOUT = 300
+
 LOOPBACK_HOSTNAMES = ("localhost", "127.0.0.1", "::1")
 
 
@@ -85,6 +95,7 @@ class InvalidConfiguration(ValueError):
 # zero is the shape a half-edited file takes.
 POSITIVE_SETTINGS = (
     "fetch_timeout_seconds",
+    "frame_timeout_seconds",
     "text_num_ctx",
     "vision_num_ctx",
     "judge_num_ctx",
@@ -196,6 +207,8 @@ class Config:
     caption_languages: str = "en-orig"
     # See DEFAULT_FETCH_TIMEOUT above: one number, not a copy of one.
     fetch_timeout_seconds: int = DEFAULT_FETCH_TIMEOUT
+    # See DEFAULT_FRAME_TIMEOUT above. Used only when the pack sets `use_frames`.
+    frame_timeout_seconds: int = DEFAULT_FRAME_TIMEOUT
 
     ollama_host: str = "http://localhost:11434"
     text_model: str = DEFAULT_TEXT_MODEL

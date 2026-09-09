@@ -17,7 +17,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from .config import CONFIG_FILENAME, Config
+from .config import CONFIG_FILENAME, Config, InvalidConfiguration
 from .cost import RunRefused
 from .llm import OllamaError
 from .acquire import (
@@ -41,6 +41,20 @@ SYMBOL = {
 }
 
 
+def _corpus_path_hint(args) -> str:
+    """The corpus path for an error message, or why it cannot be given.
+
+    This runs INSIDE an exception handler. Re-reading the configuration there is a second
+    chance to fail, and an exception raised while handling one replaces the single line the
+    handler existed to print with a chained traceback -- the handler defeating its own
+    purpose over a detail that was only ever a courtesy.
+    """
+    try:
+        return str(Config.load(args.config).corpus_path)
+    except Exception as exc:  # deliberately broad: a hint may never become the failure
+        return f"unknown -- {args.config or CONFIG_FILENAME} could not be re-read ({exc})"
+
+
 def _run(func, args) -> int:
     """Turn predictable failures into a sentence and an exit code, never a traceback.
 
@@ -60,6 +74,9 @@ def _run(func, args) -> int:
     except InvalidPack as exc:
         print(f"invalid pack: {exc}", file=sys.stderr)
         return 7
+    except InvalidConfiguration as exc:
+        print(f"bad setting: {exc}", file=sys.stderr)
+        return 2
     except YtDlpMissing as exc:
         print(str(exc), file=sys.stderr)
         return 8
@@ -101,7 +118,7 @@ def _run(func, args) -> int:
         return 2
     except sqlite3.Error as exc:
         print(f"corpus database error: {exc}", file=sys.stderr)
-        print(f"  corpus path: {Config.load(args.config).corpus_path}", file=sys.stderr)
+        print(f"  corpus path: {_corpus_path_hint(args)}", file=sys.stderr)
         return 5
 
 

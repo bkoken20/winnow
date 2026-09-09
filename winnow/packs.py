@@ -80,6 +80,21 @@ def load_pack(directory: Path) -> Pack:
     if not manifest_path.exists():
         raise FileNotFoundError(f"no pack.json in {directory}")
     manifest = _load_json(manifest_path)
+    if not isinstance(manifest, dict):
+        raise InvalidPack(
+            f"{manifest_path}: a pack manifest must be a JSON object describing ONE pack, "
+            f"not a {type(manifest).__name__}."
+        )
+    name = manifest.get("name")
+    if not isinstance(name, str) or not name.strip():
+        # Checked first because everything else about a broken pack is easier to report
+        # once there is a name to report it against -- and because `manifest["name"]` at
+        # the end of this function answered the omission with `KeyError: 'name'`.
+        raise InvalidPack(
+            f"{manifest_path}: no 'name'. It is what `pack` in winnow.json refers to and "
+            "what every stored claim is filed under, so it cannot be defaulted from the "
+            f"folder: set \"name\" to a short identifier, e.g. \"{directory.name}\"."
+        )
 
     def _read(key: str, default: str = "") -> str:
         filename = manifest.get(key)

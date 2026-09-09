@@ -18,6 +18,21 @@ from urllib.parse import urlparse
 
 CONFIG_FILENAME = "winnow.json"
 
+# The embedding backends that exist. Quoted by the error message and read by the dispatch in
+# `embed.build_embedder`, so a name can never appear in one and not the other -- the failure
+# this replaces was `embed_backend: "cloud"`, which this module described the privacy
+# consequences of at length while `build_embedder` had no such branch at all.
+EMBED_BACKENDS = ("ollama", "hashing")
+
+
+class InvalidConfiguration(ValueError):
+    """A setting whose value cannot be used, named so the CLI can answer with exit code 2.
+
+    Distinct from malformed JSON: the file parsed, and the mistake is in what it says. Both
+    are the user's input and both exit 2, but only this one can name the setting.
+    """
+
+
 DEFAULT_TEXT_MODEL = "qwen2.5:14b-instruct"
 DEFAULT_TEXT_NUM_CTX = 32768
 DEFAULT_VISION_MODEL = "qwen2.5vl:7b"
@@ -97,6 +112,16 @@ class Config:
             data = json.loads(candidate.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             raise json.JSONDecodeError(f"{candidate}: {exc.msg}", exc.doc, exc.pos) from None
+        if not isinstance(data, dict):
+            # Well-formed JSON of the wrong shape. A list reached `set(data) - known` and
+            # died on `'int' object is not iterable`; a string was worse, iterating into
+            # single characters and warning about an unknown setting 'w', then 'i', then
+            # 'n'. Neither says the one thing that helps: this file has to be an object.
+            raise InvalidConfiguration(
+                f"{candidate}: a configuration file must be a JSON object "
+                f"({{\"pack\": \"ai_tooling\", ...}}), not a "
+                f"{type(data).__name__}."
+            )
         known = {f for f in cls.__dataclass_fields__}
         unknown = sorted(set(data) - known)
         if unknown:
@@ -108,7 +133,16 @@ class Config:
                     UserWarning,
                     stacklevel=2,
                 )
-        return cls(**{k: v for k, v in data.items() if k in known})
+        config = cls(**{k: v for k, v in data.items() if k in known})
+        if config.embed_backend not in EMBED_BACKENDS:
+            # Refused HERE, not at first use, because `winnow status` never builds a
+            # pipeline: it read this setting, believed it, and printed a privacy statement
+            # about a backend that does not exist.
+            raise InvalidConfiguration(
+                f"{candidate}: embed_backend is {config.embed_backend!r}, which is not a "
+                f"backend Winnow has. Use one of: {', '.join(EMBED_BACKENDS)}."
+            )
+        return config
 
     def save(self, path: str | Path | None = None) -> Path:
         target = Path(path) if path else Path(CONFIG_FILENAME)
@@ -140,7 +174,10 @@ class Config:
         return (
             self.host_is_local
             and self.judge_location != "cloud"
-            and self.embed_backend != "cloud"
+            # Any backend that is not one of ours, not the single spelling 'cloud'. This
+            # said `!= "cloud"`, which described one imagined non-local backend and passed
+            # every other unknown value as fully local.
+            and self.embed_backend in EMBED_BACKENDS
         )
 
     def egress_statement(self) -> str:
@@ -186,8 +223,16 @@ class Config:
                 "judge_location is 'cloud' but judge_model is empty, so no judging happens "
                 "at all and this setting currently does nothing"
             )
-        if self.embed_backend == "cloud":
-            reasons.append("embed_backend is set to 'cloud'")
+        if self.embed_backend not in EMBED_BACKENDS:
+            # This used to read `== "cloud"` and answer "embed_backend is set to 'cloud'",
+            # a description of the privacy consequences of a backend `build_embedder` has
+            # no branch for. Claiming a feature in a privacy statement is worse than
+            # claiming one in a README.
+            reasons.append(
+                f"embed_backend is {self.embed_backend!r}, which is not a backend Winnow "
+                f"has ({', '.join(EMBED_BACKENDS)}), so what it would do with your text "
+                "cannot be stated at all"
+            )
 
         return "NOT FULLY LOCAL. " + "; ".join(reasons) + "."
 

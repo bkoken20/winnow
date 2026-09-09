@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**48 behaviours, over eleven rounds.** Every mutation was detected except those recorded
+**63 behaviours, over twelve rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -395,3 +395,59 @@ read it as a passing grade.
   valid. Mutating the href turned it red.
 - Disabling the scheme check alone left a second layer intact (`""` no longer counts as
   loopback). Restoring both halves of the original defect turned it red.
+
+## Round twelve — an external review, and the rows three fixes never got
+
+A second reviewing model read the repository for publication readiness. Its findings are
+being worked one at a time; this round records the perturbations for the four fixed so far.
+
+Rows 49-51 belong to fixes that shipped in earlier commits. They were perturbed at the time
+and never written down, so the record's own count stopped at eleven rounds while the code
+moved on. Their mutations were re-applied and re-run before these lines were written -- a
+row recalled is not a row verified.
+
+Rows 52-63 are one review item: **predictable input mistakes answered with a traceback.**
+A pack manifest with no `name` gave `KeyError: 'name'`; a `winnow.json` holding a JSON array
+gave `TypeError: 'int' object is not iterable`; `text_num_ctx: 10` and
+`embed_backend: "cloud"` both gave a bare `ValueError`. The handler for a corrupt corpus
+re-read the configuration to name the corpus path, so a second failure there replaced the
+one-line database error with a chained traceback -- the handler defeating its own purpose.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 49 | the caption fallback re-requesting the video | `test_fallback_does_not_refetch_video.py` | RED (3 of 4) |
+| 50 | the already-known verdict reporting a sentinel instead of a similarity | `test_reingest_similarity_is_real.py` | RED (2 of 4) |
+| 51 | identity and memory using different spellings of one path | `test_source_paths_are_normalised.py` | RED (3 of 4) |
+| 52 | a pack manifest with no `name` accepted | `test_a_nameless_pack_is_an_invalid_pack` | RED |
+| 53 | a pack manifest that is not a JSON object accepted | `test_a_manifest_that_is_not_an_object_is_an_invalid_pack` | RED |
+| 54 | a `winnow.json` that is not a JSON object accepted | `test_a_config_that_is_not_an_object_is_refused` | RED |
+| 55 | an unknown `embed_backend` not refused at load | `test_status_does_not_describe_a_backend_that_does_not_exist` | RED |
+| 56 | `is_fully_local` back to the one spelling `!= "cloud"` | `test_the_local_check_covers_every_unknown_backend_not_one_spelling` | RED |
+| 57 | the privacy statement describing a backend that cannot be built | `test_a_directly_built_config_is_not_local_on_an_unknown_backend` | RED |
+| 58 | `EMBED_BACKENDS` naming a backend the dispatch has no branch for | `test_every_named_backend_can_actually_be_built` | RED |
+| 59 | an unusable `text_num_ctx` raising a bare `ValueError` | `test_an_unusable_context_window_is_refused_before_any_work` | RED |
+| 60 | an unknown backend raising a bare `ValueError` | `test_an_unnamed_backend_is_a_configuration_error` | RED |
+| 61 | the corpus created before the configuration is checked | `test_an_unusable_context_window_is_refused_before_any_work` | RED |
+| 62 | the database handler re-reading a configuration that can fail | `test_the_database_handler_survives_an_unreadable_config` | RED |
+| 63 | no exit code for a setting whose value cannot be used | `test_the_cli_reports_a_misshapen_config_as_code_two` | RED |
+
+### The suite was red for three commits and I reported it passing
+
+The tracked-files guard forbids absolute machine paths in tracked files. Fixing row 51 meant
+writing a docstring that *explains* a path-spelling defect, and the example I wrote was
+drive-shaped, so the guard fired on my own prose. I reworded the copy in `winnow/pipeline.py`
+and left the identical wording in the test file -- and the suite has been red from that
+commit until this one, while the closing report said 478 tests passing.
+
+The rule that catches this is already written down (*gate the commit on the suite's exit
+code, never on a line of its output*) and it was followed; the failure was reading the tail
+of one run and not re-reading it after the last edit. **Green is a fact about the tree as it
+stands now, not a fact about the tree twenty minutes ago.**
+
+### One guard, one test
+
+Row 61 -- the corpus must not be created before the configuration is refused -- is caught by
+exactly one test, and not the one I expected. `test_an_unknown_embedding_backend_is_refused`
+makes the same assertion but cannot detect the ordering, because an unknown backend is now
+refused when the configuration is *read*, long before `Pipeline.build` runs. Two guards at
+different depths, and only the deeper mistake exercises the deeper one.

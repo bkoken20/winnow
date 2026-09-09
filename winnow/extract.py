@@ -17,6 +17,7 @@ import json
 import re
 from dataclasses import dataclass
 
+from .config import InvalidConfiguration
 from .models import Claim
 from .packs import Pack
 
@@ -61,9 +62,10 @@ def context_capacity_chars(num_ctx: int) -> int:
     """The largest chunk that fits in this context window, prompt and response included."""
     usable = num_ctx - PROMPT_OVERHEAD_TOKENS - RESPONSE_HEADROOM_TOKENS
     if usable < 500:
-        raise ValueError(
-            f"num_ctx={num_ctx} is too small to extract from; use a model with a larger "
-            "context window or raise num_ctx to the model's real capacity"
+        raise InvalidConfiguration(
+            f"text_num_ctx={num_ctx} is too small to extract from: after the prompt and "
+            f"room for a reply there are {usable} tokens left. Raise text_num_ctx to the "
+            "model's real context window, or use a model with a larger one."
         )
     return usable * CHARS_PER_TOKEN
 

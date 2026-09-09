@@ -22,6 +22,7 @@ import struct
 from dataclasses import dataclass
 from typing import Protocol
 
+from .config import EMBED_BACKENDS, InvalidConfiguration
 from .llm import OllamaClient
 
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
@@ -109,4 +110,10 @@ def build_embedder(backend: str, model: str = DEFAULT_EMBED_MODEL, host: str | N
         return OllamaEmbedder(model=model, client=client)
     if backend == "hashing":
         return HashingEmbedder()
-    raise ValueError(f"unknown embedding backend {backend!r} (expected 'ollama' or 'hashing')")
+    # The valid names come from the same tuple the configuration validates against, so
+    # this message and that check cannot drift apart. A bare ValueError here reached the
+    # user as a traceback; it is a setting with a bad value, which has an exit code.
+    raise InvalidConfiguration(
+        f"unknown embedding backend {backend!r}; embed_backend must be one of: "
+        f"{', '.join(EMBED_BACKENDS)}"
+    )

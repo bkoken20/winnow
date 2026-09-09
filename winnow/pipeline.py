@@ -11,7 +11,7 @@ from pathlib import Path
 from .config import Config
 from .cost import Projection, accepted_by_flag, gate, time_one
 from .embed import build_embedder, cosine_similarity
-from .extract import Extractor
+from .extract import Extractor, chunk_size_for
 from .judge import Judge, JudgeConfig
 from .llm import OllamaClient, OllamaError
 from .media import (
@@ -95,10 +95,16 @@ class Pipeline:
     def build(cls, config: Config) -> "Pipeline":
         packs_root = Path(config.packs_root) if config.packs_root else None
         pack = find_pack(config.pack, packs_root)
-        store = Store(config.corpus_path)
+        # Everything that can refuse the configuration runs BEFORE `Store()`, which creates
+        # the corpus file and every directory above it. An unusable `text_num_ctx` used to
+        # raise from the first extraction call and an unknown `embed_backend` from the line
+        # below this one -- in both cases after a database the user never got to use had
+        # been written to disk.
+        chunk_size_for(config.text_num_ctx)
         embedder = build_embedder(
             config.embed_backend, config.embed_model, config.ollama_host
         )
+        store = Store(config.corpus_path)
         llm = OllamaClient(host=config.ollama_host)
         # The extractor is built for indexing; `ingest` swaps in its own pass list, which
         # is more thorough because judging one item costs seconds while indexing a whole

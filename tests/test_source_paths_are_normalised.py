@@ -4,8 +4,8 @@
 arrived and `skip_known` compares those raw strings. So the identity of a source and the
 memory of having processed it disagree:
 
-    winnow index ./notes        stores "notes\\a.md"
-    winnow index C:\\...\\notes   stores "C:\\...\\notes\\a.md" -- a different string
+    winnow index ./notes            stores "notes\\a.md"
+    winnow index <absolute>/notes   stores the absolute spelling -- a different string
 
 The second run re-extracts every file, at full model cost, and because the source ID is the
 same it then REPLACES the rows it just duplicated the work for. On Windows the same happens

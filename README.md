@@ -35,21 +35,31 @@ current settings.
 ```
 $ winnow ingest https://youtu.be/IH8XmxiwliQ
 
-running: yt-dlp --skip-download --write-subs --write-auto-subs --sub-format vtt ...
-72 claims after de-duplication
+using cached material in winnow-cache\youtu-be-IH8XmxiwliQ-7ba82fc9
+transcript: winnow-cache\youtu-be-IH8XmxiwliQ-7ba82fc9\video.en-orig.vtt
+pass 1 of 3: 2000-character chunks, 11 model calls
+pass 2 of 3: 1000-character chunks, 22 model calls
+pass 3 of 3: 4000-character chunks, 6 model calls
+69 claims after de-duplication in 4.7 minutes
 
-[NEW    ] 0.70  A 177 billion parameter model can run effectively on a 5-year-old GPU with 12GB of VRAM.
-[NEW    ] 0.59  The Quen 4 exp model includes an additional 51 billion parameters in the form of a lookup table.
-[NEW    ] 0.63  The Quen 4 exp model architecture includes a phrase book in addition to the standard dicti...
-[NEW    ] 0.68  A 3-bit quantized 177 billion parameter model runs on a server with an RTX 3060 and 61 GB...
-[NEW    ] 0.66  The model runs at 16.5 tokens per second on a used gaming card.
+[NEW    ] 0.69  A 177 billion parameter model can run on a 5-year-old GPU with 12GB of VRAM without performan...
+[NEW    ] 0.66  The Quen 4 exp architecture includes a lookup table with 51 billion parameters, which is not ...
+[NEW    ] 0.63  The Quen 4 exp architecture uses a second dictionary (phrase book) to store common phrases an...
+[NEW    ] 0.63  A model can use a phrase book to reduce its effective parameter count from 125 billion to 51 ...
+[NEW    ] 0.55  The phrase book can reside on an SSD and only the necessary rows are read during computation.
 ```
 
 Real output, copied from a run, not an illustration: a 25-minute talk judged against a
-corpus built from llama.cpp, Ollama and vLLM documentation. Everything came back `NEW`,
-which is the right answer — that corpus knows about quantisation and inference backends,
+corpus built from llama.cpp, Ollama and vLLM documentation (157 notes, 195 claims).
+67 of the 69 came back `NEW` and two `VARIANT`, which is the right answer — that corpus knows about quantisation and inference backends,
 and nothing at all about this architecture. Feed it a video on a subject your corpus does
 cover and most lines read `known`.
+
+This run had the captions already; a first run fetches them, printing the `yt-dlp` command
+before it runs. A `destination:` line stating exactly what leaves the machine is printed
+above these and is omitted here for width — see [Privacy](#privacy). The three passes are
+chunk sizes, not retries: each cuts the transcript in different places, and each finds
+claims the others miss.
 
 The number is the similarity between that claim and the closest thing already in your
 corpus, so **higher means you have seen it before** — which is why the new ones score low.
@@ -131,12 +141,15 @@ That division is the whole economic argument, and it is measured rather than ass
 | novelty by similarity | local embeddings | "have I seen this?" is a distance question, not a reasoning one |
 | **the final read** | **you, or a frontier model you direct** | the part local models measurably cannot do |
 
-**What it actually costs, measured.** A 25-minute talk (21 KB of transcript) takes **4.9
-minutes** of local compute on an RTX 5060 Ti (16 GB) and yields **72 claims**. Not a handful
+**What it actually costs, measured.** A 25-minute talk (21 KB of transcript) takes about
+**4.8 minutes** of local compute on an RTX 5060 Ti (16 GB) and yields **about 70 claims**
+— three runs of the same talk against the same corpus took 4.9, 4.8 and 4.7 minutes and
+returned 72 claims, 72 again, and 69, because the extracting model samples rather than
+being deterministic. Not a handful
 — but 72 short statements is a few minutes of reading against 25 minutes of watching, and
 you can read them at your own pace, search them, and keep them.
 
-**On a fresh corpus every one of those 72 comes back `?`** — Winnow refuses to call anything
+**On a fresh corpus every one of them comes back `?`** — Winnow refuses to call anything
 novel until the corpus passes the pack's minimum, because a blind spot is not a discovery.
 The sorting into *known* and *new* is what you get once a corpus exists; the first few
 things you feed it are just building one. `--new-only` is what makes the output short, and

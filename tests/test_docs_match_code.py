@@ -100,15 +100,23 @@ def _number_words(low: int, high: int) -> dict[str, int]:
 
 
 def test_readme_perturbation_count_matches_the_record():
-    """The README claimed fourteen verified behaviours where the record listed eleven."""
+    """The README claimed fourteen verified behaviours where the record listed eleven.
+
+    A numeral counts as well as a word. The word map ran out at ninety-nine on the round
+    that took the count to 110, which is the third time this check has been defeated by its
+    own spelling table -- and its failure branch says "the README states no count at all",
+    which is the opposite of what is wrong. The guarantee is that the two numbers agree;
+    how the README writes the number never was part of it.
+    """
     rows = len(re.findall(r"^\| \d+ \|", PERTURBATION.read_text(encoding="utf-8"), re.MULTILINE))
     readme = README.read_text(encoding="utf-8")
     # Generated, not listed. A hardcoded map ran out twice -- and when it did, the failure
     # was the "no count found" branch below, which describes the wrong problem entirely.
     claimed = [n for word, n in _number_words(1, 99).items() if f"{word} behaviours" in readme]
+    claimed += [int(n) for n in re.findall(r"\b(\d+) behaviours", readme)]
     assert claimed, (
-        "the README should state how many behaviours were perturbation-verified, "
-        "in words (e.g. 'Thirty-eight behaviours')"
+        "the README should state how many behaviours were perturbation-verified, as a "
+        "number or in words (e.g. '110 behaviours' or 'Thirty-eight behaviours')"
     )
     assert claimed[0] == rows, (
         f"README claims {claimed[0]} perturbation-verified behaviours; "

@@ -37,6 +37,97 @@ class InvalidConfiguration(ValueError):
     """
 
 
+# Settings that are a SIZE: zero or negative is never a usable value for any of them, and
+# zero is the shape a half-edited file takes.
+POSITIVE_SETTINGS = (
+    "text_num_ctx",
+    "vision_num_ctx",
+    "judge_num_ctx",
+    "chunk_chars",
+    "frame_every_seconds",
+    "max_frames",
+)
+# Settings that are a cosine similarity, which cannot leave [0, 1]. `duplicate_threshold:
+# 5.0` was accepted in silence and no similarity can reach it, so de-duplication was off and
+# nothing in the output said so -- a wrong answer rather than a crash.
+UNIT_INTERVAL_SETTINGS = ("duplicate_threshold",)
+
+# `bool` is a subclass of `int`, so a plain isinstance check accepts `true` for a context
+# window. JSON has a literal `true`, and a hand-edited file is exactly where it turns up.
+_CHECKS = {
+    "str": lambda v: isinstance(v, str),
+    "int": lambda v: isinstance(v, int) and not isinstance(v, bool),
+    "float": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+    "list": lambda v: isinstance(v, list),
+    "dict": lambda v: isinstance(v, dict),
+}
+_ARTICLE = {
+    "str": "a string",
+    "int": "a whole number",
+    "float": "a number",
+    "list": "a list of whole numbers",
+    "dict": "an object",
+}
+
+
+def _declared_kind(annotation) -> str:
+    """Which of the five shapes this field declares.
+
+    Read from the annotation the dataclass already carries rather than from a table beside
+    it, so a setting added later is type-checked the day it appears instead of the day
+    someone remembers to add a row. `from __future__ import annotations` makes these
+    strings, hence the text handling.
+    """
+    text = annotation if isinstance(annotation, str) else getattr(annotation, "__name__", "")
+    for kind in ("list", "dict", "str", "float", "int"):
+        if text.startswith(kind):
+            return kind
+    return ""
+
+
+def _validate(data: dict, where: Path) -> None:
+    """Refuse a value the code below cannot use, naming the file and the setting.
+
+    Deliberately at the FILE boundary and not in `__post_init__`: a `Config` built directly
+    in code stays unvalidated, which is what lets the privacy checks be tested against
+    values `load` refuses -- `Config(judge_location="cloutd").is_fully_local` has to be
+    provable, and it cannot be if the constructor rejects the argument.
+
+    Deliberately NOT in `cli._run` either, which is where the review suggested catching
+    `TypeError` and `ValueError`. Those are what a genuine bug raises, and catching them
+    there would answer the next real defect with a tidy "bad input" message.
+    """
+    for name, spec in Config.__dataclass_fields__.items():
+        if name not in data:
+            continue
+        value = data[name]
+        kind = _declared_kind(spec.type)
+        if kind and not _CHECKS[kind](value):
+            raise InvalidConfiguration(
+                f"{where}: {name} must be {_ARTICLE[kind]}, not "
+                f"{type(value).__name__} ({value!r})."
+            )
+        if kind == "list" and not all(
+            isinstance(item, int) and not isinstance(item, bool) and item > 0
+            for item in value
+        ):
+            raise InvalidConfiguration(
+                f"{where}: {name} is {value!r}. Every entry is a chunk size in characters, "
+                "so each must be a whole number greater than zero."
+            )
+        if name in POSITIVE_SETTINGS and value <= 0:
+            raise InvalidConfiguration(
+                f"{where}: {name} is {value!r}. It is a size, so it must be greater than "
+                "zero."
+            )
+        if name in UNIT_INTERVAL_SETTINGS and not 0.0 <= value <= 1.0:
+            raise InvalidConfiguration(
+                f"{where}: {name} is {value!r}. It is a cosine similarity, so it must be "
+                "between 0 and 1 -- above 1 nothing is ever a duplicate and the check is "
+                "silently off."
+            )
+
+
 DEFAULT_TEXT_MODEL = "qwen2.5:14b-instruct"
 DEFAULT_TEXT_NUM_CTX = 32768
 DEFAULT_VISION_MODEL = "qwen2.5vl:7b"
@@ -137,6 +228,7 @@ class Config:
                     UserWarning,
                     stacklevel=2,
                 )
+        _validate(data, candidate)
         config = cls(**{k: v for k, v in data.items() if k in known})
         if config.judge_location not in JUDGE_LOCATIONS:
             raise InvalidConfiguration(

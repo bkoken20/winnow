@@ -115,6 +115,13 @@ one that changes what you actually read.
 | `use_frames` | `false` | Whether to sample and describe frames. Leave off unless meaning genuinely lives on screen in your domain. Setting it true with no `frame_prompt` is refused at load. |
 | `min_corpus` | `25` | Claims required before any novelty verdict is issued — counting *other* claims, never the one being judged. Below it, everything comes back `unknown` rather than `new`. So a corpus of exactly 25 still reports `unknown` when re-judged, because each claim then rests on 24 peers. Raise for broad domains, lower for narrow ones. |
 
+**Every setting is checked when the file is read.** A value of the wrong type, a size of
+zero or less (`text_num_ctx`, `vision_num_ctx`, `judge_num_ctx`, `chunk_chars`,
+`frame_every_seconds`, `max_frames`), or a `duplicate_threshold` outside 0–1 is refused by
+name with exit 2, before anything runs. `true` is not a number here even though Python
+counts it as one, and `duplicate_threshold: 5.0` used to be accepted in silence — no
+similarity reaches 5, so de-duplication was off and nothing said so.
+
 ## Command-line flags
 
 | flag | applies to | what it does |

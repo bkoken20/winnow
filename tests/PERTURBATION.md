@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**99 behaviours, over seventeen rounds.** Every mutation was detected except those recorded
+**110 behaviours, over eighteen rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -696,3 +696,77 @@ README. All of it gitignored; none of it tracked; the repository is clean. The f
 is not a bad commit -- it is publishing by **copying the folder**, at which point every one of
 them ships. So the check is on `git archive HEAD`, which is what a stranger would actually
 receive, and it runs both ways: nothing local in it, and it is still recognisably the project.
+
+## Round eighteen — a setting of the wrong type, and the first round with a code walk
+
+`Config.load` checked two settings by name and nothing else. Every other value went into the
+dataclass exactly as JSON produced it and failed later, in the middle of a run, as a Python
+error. Ten were reproduced against the real CLI with Ollama running:
+
+```
+text_num_ctx: "32768"       TypeError: unsupported operand type(s) for -: 'str' and 'int'
+text_num_ctx: null          TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'
+chunk_chars: "2000"         TypeError: '<' not supported between instances of 'int' and 'str'
+duplicate_threshold: "0.9"  TypeError: '<=' not supported between 'str' and 'int'
+corpus_path / packs_root / notes_path: 5   TypeError: argument should be a str or PathLike
+pack: 5                     TypeError: unsupported operand type(s) for /: 'WindowsPath' and 'int'
+ollama_host: 5              AttributeError: 'int' object has no attribute 'decode'
+index_extra_passes: 1000    TypeError: 'int' object is not iterable
+```
+
+Four of those the review did not list; one it did list -- `judge_num_ctx: 0` -- could not be
+reproduced here, and is recorded as unreproduced rather than inherited. `duplicate_threshold:
+5.0` was worse than any of them: accepted in silence, and since no cosine reaches 5, nothing
+is ever a duplicate and the output does not say the check is off.
+
+The types are read from the annotations the dataclass already carries, so a setting added
+later is checked the day it appears rather than the day someone remembers a table. Only
+ranges -- "this one is a size", "this one is a similarity" -- need naming by hand.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 100 | the validator not called at all | `test_a_value_of_the_wrong_type_is_refused` | RED (45) |
+| 101 | `true` counting as a whole number | `test_true_is_not_a_number` | RED |
+| 102 | `true` counting as a similarity | `test_true_is_not_a_similarity_either` | RED |
+| 103 | a whole number refused where a similarity is expected | `test_a_whole_number_is_a_valid_similarity` | RED |
+| 104 | a list's entries unchecked | `test_a_list_of_the_wrong_thing_is_refused` | RED (2) |
+| 105 | a size of zero accepted | `test_a_size_of_zero_is_refused` | RED (2) |
+| 106 | a similarity outside 0-1 accepted | `test_a_similarity_threshold_outside_zero_to_one_is_refused` | RED |
+| 107 | zero itself no longer too small | `test_a_size_of_zero_is_refused` | RED (6) |
+| 108 | a similarity ABOVE one accepted | `test_a_similarity_threshold_outside_zero_to_one_is_refused` | RED |
+| 109 | the declared kind not read from the annotation | `test_a_value_of_the_wrong_type_is_refused` | RED (38) |
+| 110 | a range-checked setting that is not a number | `test_every_range_checked_setting_is_a_number` | RED (49) |
+
+### Row 110 came from the code walk, not from the tests
+
+The suite was green -- 636 tests -- and the fix still carried the bug it was fixing. Walking
+the validator with real values:
+
+```
+Lines 118 and 123 compare `value` with 0 WITHOUT knowing it is a number.
+  with the type check present:  refused at config.py:106 (never reaches 118)
+  with the type check disabled: TypeError: '<=' not supported between 'str' and 'int'
+```
+
+`if name in POSITIVE_SETTINGS and value <= 0` is safe **only** because the type check above
+has already rejected a non-number for every name in that tuple -- which holds only while
+every name in it happens to be an `int` field. Nothing enforced that. Change `max_frames` to
+a string one day and the comparison raises the very traceback the validator exists to
+prevent, thrown by the validator.
+
+The tuples cannot be derived: nothing in `int` says "this one is a size". So the coupling is
+real, and the instrument is a test that names it.
+
+**No red test would have found this**, because the invariant holds today. It came from
+opening the file and reading what the statements do with values, which is what CHARTER 67
+added to the method on the day this round was worked.
+
+### The count outgrew its own spelling table, for the third time
+
+This round takes the record to 110 rows, and `test_docs_match_code._number_words(1, 99)`
+stops at ninety-nine. Its docstring already records the hardcoded map it replaced running
+out twice, and that when it does, the test fails on its "no count found" branch --
+**reporting that the README states no count at all, when it states one the test cannot
+spell.** Generating the words moved the ceiling; it did not remove it. A numeral now counts
+as a stated count, which has no ceiling and leaves the guarantee -- that the README's number
+equals the table's row count -- exactly as it was.

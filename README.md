@@ -296,7 +296,7 @@ deserve to be told about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. Ninety-nine behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. 110 behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by
@@ -313,7 +313,7 @@ left to raise with a full traceback rather than being flattened into one of thes
 |---|---|---|
 | `0` | success — including "found nothing", which is an answer | — |
 | `1` | no domain packs found | install with `pip install -e .` from the clone, or set `packs_root` |
-| `2` | bad input: missing path, not a folder, a link Winnow cannot use (a missing or mistyped `https://`), malformed JSON, a `winnow.json` that is not a JSON object, a setting whose value cannot be used (an unknown `embed_backend`, a `text_num_ctx` too small to extract from), permission denied, a path that cannot be read or written (a directory where a file belongs, a full disk), or `init` refusing to overwrite | fix the path, link or setting named in the message |
+| `2` | bad input: missing path, not a folder, a link Winnow cannot use (a missing or mistyped `https://`), malformed JSON, a `winnow.json` that is not a JSON object, a setting whose value cannot be used (an unknown `embed_backend`, a `text_num_ctx` too small to extract from), permission denied, a path that cannot be read or written (a directory where a file belongs, a full disk), a setting of the wrong type or outside its range, or `init` refusing to overwrite | fix the path, link or setting named in the message |
 | `3` | run refused — the projection exceeded your accepted budget | re-run with the `--accept-minutes` figure the message gives |
 | `4` | Ollama unreachable or erroring | check it is running: `curl -s http://localhost:11434/api/tags` |
 | `5` | corpus database error | the message names the corpus path |

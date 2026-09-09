@@ -73,6 +73,12 @@ def test_rolling_captions_are_deduplicated():
 
 
 def test_transcript_for_prefers_a_real_transcript_file(tmp_path: Path):
+    """The name says PREFERS, so there has to be something for it to be preferred over.
+
+    This put one file in the folder and asserted it was read, which is not a preference at
+    all -- and it passed unchanged while the code preferred the opposite file.
+    """
+    (tmp_path / "talk.en.vtt").write_text("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\ncaptions\n")
     (tmp_path / "transcript.txt").write_text("plain text transcript")
     assert transcript_for(tmp_path) == "plain text transcript"
 

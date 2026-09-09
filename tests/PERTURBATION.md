@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**63 behaviours, over twelve rounds.** Every mutation was detected except those recorded
+**72 behaviours, over thirteen rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -451,3 +451,65 @@ exactly one test, and not the one I expected. `test_an_unknown_embedding_backend
 makes the same assertion but cannot detect the ordering, because an unknown backend is now
 refused when the configuration is *read*, long before `Pipeline.build` runs. Two guards at
 different depths, and only the deeper mistake exercises the deeper one.
+
+## Round thirteen — which file a folder is actually read from
+
+A folder can hold captions Winnow fetched, a machine translation of them, and a transcript
+the user wrote. It picked one silently, and the order was undocumented and untested.
+
+The order was also **backwards against Winnow's own instructions**. When a video has no
+usable captions the tool says: *"produce a transcript yourself and place it in a folder as
+transcript.txt"*. Do that in a folder that already holds a `.vtt` — which is every folder
+where the captions are the problem — and the file you just wrote was ignored without a word.
+
+Among subtitles the choice was `sorted()`, so `video.en-orig.vtt` beat `video.en.vtt` only
+because `-` precedes `.` in ASCII: the right answer, for a reason that would stop holding the
+day a file was named differently. This repository's own cache holds both files.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 64 | fetched captions beating a hand-placed transcript | `test_a_hand_written_transcript_beats_fetched_captions` | RED (5 across the suite) |
+| 65 | the subtitle choice back to `sorted()[0]` | `test_the_original_caption_track_beats_the_translation` | RED |
+| 66 | the original marker matched anywhere in the name | `test_orig_must_be_the_language_tag_not_a_word_in_the_title` | RED |
+| 67 | the marker spelled `-original` rather than what yt-dlp writes | `test_the_original_caption_track_beats_the_translation` | RED |
+| 68 | the run not naming the file it read | `test_ingest_says_which_file_it_read` | RED |
+| 69 | a documentation link with its target on the next line | `test_no_link_is_split_across_two_lines` | RED |
+| 70 | a documentation anchor with no such heading | `test_anchor_links_point_at_a_real_heading` | RED |
+| 71 | a documentation link to a file that does not exist | `test_internal_links_resolve` | RED |
+| 72 | code spans scanned as if they were prose | `test_prose_keeps_the_links_it_is_meant_to_check` | RED (3) |
+
+### The link check could not see the links I was writing
+
+Rows 69 and 70 are not from the review. They come from attacking this item's own fix: the
+documentation it added contained a link split across two lines — markdown needs `](`
+adjacent, so it rendered as literal brackets — and the suite stayed green.
+
+`test_internal_links_resolve` matches `](` followed by `[^)#]+`, which requires at least one
+character before any `#`. An anchor-only link is `](#slug)`, so the pattern matches **nothing
+at all** and every in-page link in the repository was unchecked. A split link is not a link
+by then, so nothing looked at it either.
+
+**A check written against the links that existed when it was written.** Both new checks are
+parametrised over every tracked markdown file, like the one they sit beside.
+
+Then the new checks fired on this very document. Writing the round above put the literal
+pattern for a markdown link into a code span, and all three link checks read it as a link.
+The temptation is to reword the sentence -- and that is the trap: markdown creates no link
+inside a code span or a fenced block, so the checks were reporting something that cannot
+happen, and a check you write around gets written around again by deleting whatever sentence
+annoys it next. The checks now scan PROSE: the document with fenced blocks and inline code
+removed. Row 72 is the guard on that, because a stripper that removed too much would make
+every link test pass by having nothing left to check.
+
+Rows 69 and 70 were verified BEFORE that change and re-run after it. A perturbation result
+describes the code that was standing when it ran, and that code had been replaced.
+
+### What decided the order, since both directions are defensible
+
+Not which file is "better" — which mistake the user can undo. A `transcript.txt` that wins
+when it should not is a file they created and can rename. A `.vtt` that wins when it should
+not sits in a cache folder named after a hash of the URL, which nothing in the documentation
+tells them to open. Only one of those is recoverable with what they already know.
+
+The second half is that the run now prints the file it read, so the choice is visible rather
+than inferred from the claims that come out.

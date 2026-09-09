@@ -132,16 +132,86 @@ def _tracked_markdown() -> list[str]:
     return sorted(out)
 
 
+def _prose(text: str) -> str:
+    """The document with code removed, because markdown makes no links inside code.
+
+    A file whose subject is regular expressions is full of things shaped like links --
+    tests/PERTURBATION.md contains the literal pattern `](` inside a code span -- and every
+    link check below fired on them. Rewording the prose to please the checker is the wrong
+    direction: the checker was reporting a link that markdown would never create.
+    """
+    text = re.sub(r"^```.*?^```", "", text, flags=re.MULTILINE | re.DOTALL)
+    return re.sub(r"`[^`\n]*`", "", text)
+
+
+def test_prose_keeps_the_links_it_is_meant_to_check():
+    """Guard the guard: a stripper that removed everything would pass every link test."""
+    sample = "\n".join(
+        [
+            "See [the parameters](docs/PARAMETERS.md) and [an anchor](#exit-codes).",
+            "The pattern `](` is code, and so is `[not a link](nowhere.md)`.",
+            "```",
+            "[fenced](also-nowhere.md)",
+            "```",
+            "",
+        ]
+    )
+    prose = _prose(sample)
+
+    assert "docs/PARAMETERS.md" in prose, "a real link was stripped along with the code"
+    assert "#exit-codes" in prose, "a real anchor was stripped along with the code"
+    assert "nowhere.md" not in prose, "an inline code span was scanned as prose"
+    assert "also-nowhere.md" not in prose, "a fenced block was scanned as prose"
+
+
 @pytest.mark.parametrize("doc", _tracked_markdown())
 def test_internal_links_resolve(doc):
     path = ROOT / doc
-    text = path.read_text(encoding="utf-8")
+    text = _prose(path.read_text(encoding="utf-8"))
     broken = []
     for link in re.findall(r"\]\((?!https?:)([^)#]+)", text):
         target = (path.parent / link).resolve()
         if not target.exists():
             broken.append(link)
     assert not broken, f"{doc} links to files that do not exist: {broken}"
+
+
+def _heading_slugs(text: str) -> set[str]:
+    """GitHub's anchor for a heading: lowercased, spaces to hyphens, punctuation dropped."""
+    slugs = set()
+    for line in text.splitlines():
+        if not line.startswith("#"):
+            continue
+        title = line.lstrip("#").strip()
+        slug = re.sub(r"[^\w\- ]", "", title.lower()).replace(" ", "-")
+        slugs.add(slug)
+    return slugs
+
+
+@pytest.mark.parametrize("doc", _tracked_markdown())
+def test_anchor_links_point_at_a_real_heading(doc):
+    """The file-link check skips these: `[^)#]+` matches nothing after `](#`."""
+    path = ROOT / doc
+    raw = path.read_text(encoding="utf-8")
+    slugs = _heading_slugs(raw)
+    text = _prose(raw)
+
+    broken = [a for a in re.findall(r"\]\(#([^)]+)\)", text) if a not in slugs]
+    assert not broken, (
+        f"{doc} links to anchors with no such heading: {broken}\n"
+        f"  headings present: {sorted(slugs)}"
+    )
+
+
+@pytest.mark.parametrize("doc", _tracked_markdown())
+def test_no_link_is_split_across_two_lines(doc):
+    """`[text]` and `(target)` must touch, or markdown renders the brackets literally."""
+    text = _prose((ROOT / doc).read_text(encoding="utf-8"))
+
+    split = re.findall(r"\[[^\]\n]{1,80}\]\s*\n\s*\(", text)
+    assert not split, (
+        f"{doc} has a link whose target is on the next line, so it is not a link: {split}"
+    )
 
 
 def test_no_absolute_machine_paths_in_tracked_files():

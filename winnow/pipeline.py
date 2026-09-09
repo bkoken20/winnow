@@ -19,7 +19,8 @@ from .media import (
     FFmpegMissing,
     extract_frames,
     find_media_file,
-    transcript_for,
+    load_transcript,
+    transcript_source,
 )
 from .models import NOVELTY_KNOWN, Claim, Source, Verdict
 from .packs import Pack, find_pack
@@ -36,6 +37,16 @@ class CorpusEmbeddingMismatch(RuntimeError):
     claim comes back `new` against a corpus that may hold ten thousand of them. Confident
     wrong answers are worse than a stop.
     """
+
+
+def announce_transcript(path: Path, *, stream=None) -> None:
+    """Name the file the claims are about to come from.
+
+    A folder can hold a hand-written transcript, an original caption track and a machine
+    translation of it. Winnow picks one and everything downstream is about that choice, so
+    a run that does not say which file it read cannot be checked by the person reading it.
+    """
+    print(f"transcript: {path}", file=stream or sys.stderr, flush=True)
 
 
 def announce_destination(config: Config, *, stream=None) -> None:
@@ -425,8 +436,8 @@ class Pipeline:
         from here on.
         """
         target = Path(target)
-        text = transcript_for(target)
-        if text is None:
+        chosen = transcript_source(target)
+        if chosen is None:
             media = find_media_file(target) if target.is_dir() else None
             hint = (
                 f"found media at {media.name} but no transcript beside it"
@@ -438,6 +449,9 @@ class Pipeline:
                 "fetch captions, or see docs/ACQUISITION.md for how to make a transcript "
                 "yourself."
             )
+
+        announce_transcript(chosen)
+        text = load_transcript(chosen)
 
         sid = source_id_for(target)
 

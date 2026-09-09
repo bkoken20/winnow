@@ -21,6 +21,10 @@ from pathlib import Path
 # Extensions treated as media. Subtitles are explicitly NOT media -- see find_media_file.
 MEDIA_EXTENSIONS = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4a", ".mp3", ".wav", ".flac"}
 SUBTITLE_EXTENSIONS = {".vtt", ".srt", ".ass", ".ssa", ".sub"}
+# yt-dlp names YouTube's ORIGINAL caption track `<name>.<lang>-orig.<ext>` and its machine
+# translation `<name>.<lang>.<ext>`. Both can end up in one folder, and the original is the
+# one that says what was actually spoken.
+ORIGINAL_TRACK_SUFFIX = "-orig"
 TEXT_EXTENSIONS = {".txt", ".md", ".markdown", ".mdx"}
 
 
@@ -47,12 +51,30 @@ def find_media_file(folder: Path) -> Path | None:
 
 
 def find_subtitle_file(folder: Path) -> Path | None:
+    """The best subtitle file in a folder: an original track before a translation.
+
+    This used to return whichever sorted first. `video.en-orig.vtt` beat `video.en.vtt` only
+    because `-` sorts before `.` in ASCII -- the right answer by accident, and one that stops
+    being right as soon as a file is named anything else. `en` is YouTube's machine
+    translation INTO English; `en-orig` is what was said.
+    """
     if not folder.is_dir():
         return None
-    for p in sorted(folder.iterdir()):
-        if p.is_file() and p.suffix.lower() in SUBTITLE_EXTENSIONS:
-            return p
-    return None
+    subtitles = [
+        p
+        for p in sorted(folder.iterdir())
+        if p.is_file() and p.suffix.lower() in SUBTITLE_EXTENSIONS
+    ]
+    if not subtitles:
+        return None
+    # The language tag is the last dot-separated part of the stem, so a file called
+    # `my-original-talk.vtt` is not mistaken for an original track.
+    originals = [
+        p
+        for p in subtitles
+        if p.stem.rsplit(".", 1)[-1].lower().endswith(ORIGINAL_TRACK_SUFFIX)
+    ]
+    return (originals or subtitles)[0]
 
 
 # -- transcripts ---------------------------------------------------------------
@@ -95,20 +117,39 @@ def load_transcript(path: Path) -> str:
     return text.strip()
 
 
-def transcript_for(target: Path) -> str | None:
-    """Best available transcript for a file or a folder, without transcribing audio."""
+def transcript_source(target: Path) -> Path | None:
+    """Which file a transcript would be read from, or None.
+
+    Separate from reading it so that the caller can SAY which file it used. Choosing
+    silently between two files in a folder is the fault underneath everything below.
+
+    In a folder, a hand-placed transcript beats fetched captions. That order used to be the
+    other way round, which made the documented remedy for bad captions do nothing: `winnow
+    ingest <url>` tells you to "produce a transcript yourself and place it in a folder as
+    transcript.txt", and in a folder that already held a `.vtt` the file you just wrote was
+    ignored without a word.
+
+    The deciding argument is which mistake the user can undo. A `transcript.txt` that should
+    not have won is a file they made and can rename. A `.vtt` that should not have won sits
+    in a cache folder named by a hash of the URL, which nothing tells them to look in. Only
+    one of those is recoverable with what they already know -- and a hand-placed file is the
+    only one whose presence is a decision rather than a by-product of fetching.
+    """
     if target.is_file():
         if target.suffix.lower() in SUBTITLE_EXTENSIONS | TEXT_EXTENSIONS:
-            return load_transcript(target)
+            return target
         return None
-    subtitle = find_subtitle_file(target)
-    if subtitle:
-        return load_transcript(subtitle)
     for name in ("transcript.txt", "transcript.md"):
         candidate = target / name
-        if candidate.exists():
-            return load_transcript(candidate)
-    return None
+        if candidate.is_file():
+            return candidate
+    return find_subtitle_file(target)
+
+
+def transcript_for(target: Path) -> str | None:
+    """Best available transcript for a file or a folder, without transcribing audio."""
+    chosen = transcript_source(target)
+    return load_transcript(chosen) if chosen else None
 
 
 # -- frames --------------------------------------------------------------------

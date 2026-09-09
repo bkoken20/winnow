@@ -17,7 +17,7 @@ control than one command gives you.
 | a video URL | `winnow ingest https://youtu.be/...` | fetches captions with yt-dlp, caches them per URL |
 | a transcript file | `winnow ingest talk.txt` | plain text or markdown |
 | a subtitle file | `winnow ingest talk.en.vtt` | `.vtt`, `.srt`, `.ass`, `.sub` |
-| a folder | `winnow ingest ./talk/` | finds `transcript.txt` or any subtitle file inside |
+| a folder | `winnow ingest ./talk/` | reads `transcript.txt`, else `transcript.md`, else a subtitle file — see [Which file a folder is read from](#which-file-a-folder-is-read-from) |
 | a media file plus a transcript beside it | `winnow ingest ./talk/` | media is used only for frames |
 
 **Two things Winnow will not do.** It does not transcribe: a video with no captions is a
@@ -195,6 +195,41 @@ with open("talk/transcript.txt", "w", encoding="utf-8") as f:
 Then `winnow ingest ./talk/`. Larger models (`small.en`, `medium.en`) transcribe better and
 more slowly; `base.en` is usually enough, since extraction cares about content rather than
 perfect wording.
+
+This works in a folder that **already** holds captions, which is the case that matters when
+the captions are the problem: `transcript.txt` wins over any subtitle file beside it, and the
+run prints which file it read. See
+[Which file a folder is read from](#which-file-a-folder-is-read-from).
+
+## Which file a folder is read from
+
+A folder can hold several things Winnow could read: captions it fetched, a translation of
+those captions, and a transcript you wrote yourself. It picks one, in this order:
+
+1. `transcript.txt`
+2. `transcript.md`
+3. a subtitle file — an **original** track (`*.en-orig.vtt`) before a **translated** one
+   (`*.en.vtt`), whatever the filenames sort like
+4. nothing — media alone is not a transcript, and Winnow does not transcribe
+
+**A transcript you wrote beats captions that were fetched.** That is the point of the order:
+when captions are wrong — auto-generated nonsense, or the wrong language — the fix is to put
+your own `transcript.txt` in the folder, and it has to actually take effect. It is also the
+recoverable direction. If your file wins when you did not want it to, you know it is there
+and can rename it; if a `.vtt` wins, it is sitting in a cache folder named after a hash of
+the URL that nothing tells you to look in.
+
+**Every run prints the file it read**, before anything else happens:
+
+```
+transcript: talk/transcript.txt
+```
+
+If that line names a file you did not expect, the folder holds more than one candidate and
+the list above says why that one won.
+
+A folder with two media files uses the alphabetically first one. Media is only ever used for
+frames, so this affects what is *seen*, never what is read.
 
 ## ffmpeg
 

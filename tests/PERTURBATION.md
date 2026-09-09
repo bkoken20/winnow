@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**175 behaviours, over thirty rounds.** Every mutation was detected except those recorded
+**181 behaviours, over thirty-one rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1466,3 +1466,54 @@ https://github.com/bkoken20/winnow/issues -> bkoken20/winnow, public=True
 And one hazard recorded rather than fixed: the `Issues` URL is checked for naming the right
 repository, not for issues being enabled. If they are ever turned off that link 404s and no
 test here would notice. `has_issues` was true when the repository was checked.
+
+## Round thirty-one — two Pythons advertised to strangers and never run
+
+A third review, after publication. Its verdict was proceed, and its remaining notes were not
+blockers — but one of them is a claim made to people who will never read this file:
+
+```
+classifiers say : 3.10  3.11  3.12  3.13
+CI ran          : 3.10              3.13
+```
+
+`test_it_tests_the_oldest_python_the_package_claims` asserts `floor in tested`. It holds
+`requires-python` to account and lets the classifiers say whatever they like. A classifier is
+what a stranger reads on a package listing to decide whether this runs on their machine, and
+two of those four had never executed a line.
+
+The choice was to test them or to stop claiming them. The suite runs offline in about a
+minute and public CI is free, so making the claim true costs four more jobs and nothing else.
+Shrinking the claim would have cost a user on 3.11 the belief that it works — which it does.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 176 | the matrix back to floor-and-newest | `test_it_tests_every_python_the_classifiers_advertise` | RED |
+| 177 | the floor dropped from the matrix | `test_it_tests_the_oldest_python_the_package_claims` | RED (2) |
+| 178 | the concurrency group removed | `test_a_commit_is_not_tested_twice` | RED |
+| 179 | the test job left unbounded | `test_every_job_is_bounded` | RED |
+| 180 | the build job left unbounded | `test_every_job_is_bounded` | RED |
+| 181 | the packaging tools unpinned | `test_the_packaging_tools_are_pinned` | RED |
+
+Rows 178-181 are the polish items the SECOND review listed and this session had not reached:
+a push and its pull request tested the same commit twice, no job had a time limit — GitHub's
+default is six hours — and `build` and `twine` were installed unpinned, so the packaging check
+could break on a day nothing here changed.
+
+### I wrote two version pins from memory
+
+`build==1.2.2.post1` and `twine==6.1.0`, straight into the workflow. Then checked PyPI:
+latest are **1.6.0** and **7.0.0**. Both of mine existed, so CI would have gone green and the
+pins would have quietly frozen the packaging check four releases back, for no reason anyone
+could later reconstruct.
+
+A pin is a number, and this project's rule about numbers is that they are read rather than
+recalled. They are now the versions the index reports, with the date they were read written
+beside them, so the next reader can tell stale-by-choice from stale-by-neglect.
+
+### One anchor written from the shape I had in mind
+
+The perturbation for the test job's timeout used `timeout-minutes: 10\n\n    steps:`. In the
+file it is followed by `strategy:` — `steps:` is the BUILD job. ANCHOR MISS (0x), which is the
+harness doing its job: an unasserted anchor would have written the file back unchanged and
+reported the guard as passing.

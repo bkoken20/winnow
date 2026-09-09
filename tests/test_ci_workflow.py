@@ -47,20 +47,87 @@ def test_there_is_a_workflow_and_it_parses():
     assert _workflow().get("jobs"), "a workflow with no jobs runs nothing"
 
 
+def _tested_pythons() -> set[str]:
+    return {
+        str(v)
+        for job in _workflow()["jobs"].values()
+        for v in job.get("strategy", {}).get("matrix", {}).get("python-version", [])
+    }
+
+
 def test_it_tests_the_oldest_python_the_package_claims():
     """`requires-python` is a promise. CI is the only thing that can keep it."""
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     floor = re.search(r'requires-python\s*=\s*">=\s*([\d.]+)"', pyproject).group(1)
 
-    tested = {
-        str(v)
-        for job in _workflow()["jobs"].values()
-        for v in job.get("strategy", {}).get("matrix", {}).get("python-version", [])
-    }
+    tested = _tested_pythons()
     assert tested, "no Python version matrix at all"
     assert floor in tested, (
         f"pyproject promises Python {floor} and CI tests {sorted(tested)}"
     )
+
+
+def test_it_tests_every_python_the_classifiers_advertise():
+    """A classifier is a claim made to a stranger reading the package listing.
+
+    This checked only the FLOOR, so the classifiers were free to say anything: they
+    advertised 3.10, 3.11, 3.12 and 3.13 while CI ran two of them. Either the version is
+    tested or it is not claimed -- the same rule the rest of this repository lives by.
+    """
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    claimed = set(
+        re.findall(r"Programming Language :: Python :: (\d+\.\d+)", pyproject)
+    )
+    assert claimed, "the classifiers should say which Pythons this is for"
+
+    untested = sorted(claimed - _tested_pythons(), key=lambda v: tuple(map(int, v.split("."))))
+    assert not untested, (
+        f"the package advertises Python {untested} and CI has never run "
+        f"{'them' if len(untested) > 1 else 'it'}"
+    )
+
+
+def test_a_commit_is_not_tested_twice():
+    """A branch pushed and then opened as a pull request triggers both events.
+
+    The second run answers a question the first already answered, and on a matrix of eight
+    jobs that is eight duplicate jobs. A concurrency group cancels the superseded run --
+    what is wanted is the answer about the NEWEST commit, not every commit.
+    """
+    concurrency = _workflow().get("concurrency")
+
+    assert concurrency, "push and pull_request both fire, so the same commit is tested twice"
+    assert "github.ref" in str(concurrency.get("group", "")), (
+        "the group must be per-branch, or one branch's run cancels another's"
+    )
+    assert concurrency.get("cancel-in-progress") is True
+
+
+@pytest.mark.parametrize("job", ["test", "build"])
+def test_every_job_is_bounded(job):
+    """GitHub's default is SIX HOURS. A job hung on a network wait would sit there.
+
+    The same reasoning as `fetch_timeout_seconds`: this bounds a hang, it is not tight. The
+    suite runs offline in about a minute.
+    """
+    limit = _workflow()["jobs"][job].get("timeout-minutes")
+
+    assert limit, f"the {job} job has no timeout, so it inherits GitHub's six hours"
+    assert limit <= 30, f"{limit} minutes is not a bound on a one-minute suite"
+
+
+def test_the_packaging_tools_are_pinned():
+    """An unpinned build tool means the packaging check can break on a day nothing changed.
+
+    A green suite that goes red because someone else released is a false alarm, and false
+    alarms are how a check stops being read.
+    """
+    commands = _commands()
+
+    for tool in ("build", "twine"):
+        assert re.search(rf'"{tool}==[\d.]+', commands), (
+            f"{tool} is installed unpinned, so CI depends on whatever was released today"
+        )
 
 
 def test_it_tests_more_than_one_python():

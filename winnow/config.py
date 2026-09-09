@@ -271,6 +271,21 @@ class Config:
         return host in ("localhost", "127.0.0.1", "::1")
 
     @property
+    def material_stays_local(self) -> bool:
+        """Does the text you process stay on this machine?
+
+        Both facts that decide it, in one place so no caller has to combine them: the
+        address, and your correction to the address. `ollama_host` can be loopback and
+        still forward elsewhere -- an SSH tunnel, or the proxy variables urllib honours --
+        and `judge_location: "cloud"` is how you say so.
+
+        Narrower than `is_fully_local` on purpose. That one also goes false for an
+        `embed_backend` Winnow does not have, which is a broken configuration rather than a
+        statement about where anything went; the stamp records the backend separately.
+        """
+        return self.host_is_local and self.judge_location != "cloud"
+
+    @property
     def is_fully_local(self) -> bool:
         return (
             self.host_is_local
@@ -323,9 +338,23 @@ class Config:
                 "judging happens that cannot be read is not evidence that it happens here"
             )
         elif self.judge_location == "cloud" and self.judge_model:
+            # This said the claim text "is sent to it" -- to a cloud judge. There is no
+            # cloud judge and no cloud client: judging is `OllamaClient(host=ollama_host)`
+            # like every other model call. With the default localhost that sentence was
+            # simply false, in the alarming direction, in the one place the README calls
+            # the authority on this question.
+            #
+            # The setting is still worth having, and this is the case it is for: an
+            # `ollama_host` that LOOKS local and forwards elsewhere -- an SSH tunnel, or
+            # the proxy variables urllib honours -- which only the person running it knows
+            # about. So the sentence reports the declaration as a declaration, and names
+            # the one setting that actually decides the destination.
             reasons.append(
-                f"a cloud judge ('{self.judge_model}') is declared, so the text of each "
-                "claim judged, plus the most similar claims from your corpus, is sent to it"
+                f"you have declared judge_location 'cloud' with a judge "
+                f"('{self.judge_model}'). Nothing routes on that setting -- judging goes "
+                f"to ollama_host ({self.ollama_host}) like every other model call -- but "
+                "taking your declaration at its word, the text of each claim judged plus "
+                "the most similar claims from your corpus leave this machine"
             )
         elif self.judge_location == "cloud":
             reasons.append(

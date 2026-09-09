@@ -60,7 +60,19 @@ class JudgeStamp:
     embed_model: str
     embed_backend: str  # "ollama" | "hashing"
     judge_model: str = ""  # empty at tier 0
+    # A DECLARATION the user made, not a route. Kept because it is the only way to record
+    # that a local-looking `ollama_host` forwards elsewhere.
     judge_location: str = ""  # "local" | "cloud" | "" at tier 0
+    # The question this stamp exists for, answered: did the material stay here?
+    #
+    # NOT the same as `judge_location`, and not the same as the address either. It is the
+    # address AND the user's correction to it, recorded at BOTH tiers -- embeddings go to
+    # the same host as judging, so a tier-0 verdict left the machine exactly as readily.
+    # `judge_location` is blanked at tier 0 (no judge ran), which is why the declaration
+    # cannot be the thing stored: half the verdicts would lose it.
+    #
+    # None means the verdict predates this field, which is not the same as True.
+    stayed_on_this_machine: bool | None = None
     prompt_version: str = ""
     pack_version: str = ""
 

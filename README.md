@@ -168,10 +168,18 @@ which is exactly the arrangement this tool was built under.
 everything novel on day one is worse than no tool.
 
 **Every verdict records what judged it** — tier, embedding model, backend, judge model,
-judge location, prompt version, pack version. Verdicts from different judges are not
-comparable, and a corpus that silently mixes them is worthless six months later. Judge
-location is the one that matters most later: it says whether the claim text was sent
-anywhere.
+judge location, prompt version, pack version, and whether the material stayed on this
+machine. Verdicts from
+different judges are not comparable, and a corpus that silently mixes them is worthless six
+months later.
+
+**Whether the material stayed on this machine** is the one to read later, and it is not the
+same as judge location. It combines the address with your own correction to it, and it is
+recorded on every verdict at both tiers — embeddings go to the same host as judging.
+**Judge location** is what you *declared*; it routes nothing, and it is blank on verdicts
+where no judge ran. This paragraph used to say judge location "says whether the claim text
+was sent anywhere". It does not: `ollama_host` decides that, and only you know whether a
+loopback address forwards somewhere else.
 
 ## Install
 
@@ -300,7 +308,7 @@ deserve to be told about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. 115 behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. 121 behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by

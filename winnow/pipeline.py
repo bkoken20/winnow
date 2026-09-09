@@ -138,6 +138,7 @@ class Pipeline:
                 judge_model=config.judge_model,
                 judge_location=config.judge_location,
                 judge_num_ctx=config.judge_num_ctx,
+                stayed_on_this_machine=config.material_stays_local,
             ),
             llm=llm if config.judge_model else None,
         )

@@ -93,6 +93,10 @@ class JudgeConfig:
     judge_model: str = ""
     judge_location: str = ""  # "local" | "cloud"
     judge_num_ctx: int = 8192
+    # Whether the material stayed on this machine: the address AND the user's declared
+    # correction to it. Recorded on every verdict at BOTH tiers, because embeddings go to
+    # the same host and `judge_location` is blanked when no judge ran.
+    stayed_on_this_machine: bool | None = None
 
 
 def novelty_from_similarity(similarity: float, config: JudgeConfig) -> str:
@@ -131,6 +135,9 @@ class Judge:
             judge_location=self.config.judge_location if self.tier == 1 else "",
             prompt_version=JUDGE_PROMPT_VERSION if self.tier == 1 else "",
             pack_version=self.config.pack_version,
+            # Deliberately NOT gated on the tier. The judge is blanked at tier 0; where
+            # the text went is not.
+            stayed_on_this_machine=self.config.stayed_on_this_machine,
         )
 
     def coverage(self, claim_id: str = "") -> Coverage:

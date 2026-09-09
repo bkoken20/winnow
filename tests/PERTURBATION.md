@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**115 behaviours, over nineteen rounds.** Every mutation was detected except those recorded
+**121 behaviours, over twenty rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -829,3 +829,66 @@ directory being mutated underneath us. It came from reading the statements.
 never measured -- and `extraction_seconds` then reverts to unit x count without saying so.
 `Projection` refuses that combination at construction, so the fallback cannot be reached
 silently by any future caller, rather than the pipeline being trusted to remember.
+
+## Round twenty — a privacy statement about a transport that does not exist
+
+With `judge_location: "cloud"`, a judge model set and `ollama_host` at its default
+localhost, `winnow status` printed:
+
+```
+NOT FULLY LOCAL. a cloud judge ('qwen2.5:14b-instruct') is declared, so the text of each
+claim judged, plus the most similar claims from your corpus, is sent to it.
+```
+
+Nothing is sent to anything. The judge is `OllamaClient(host=ollama_host)`, the host is this
+machine, and Winnow has no cloud client of any kind. False, in the alarming direction, in the
+one place the README names as the authority — which is how people learn to skip the warning
+that matters. The README then repeated it one sentence further on: *"Judge location is the
+one that matters most later: it says whether the claim text was sent anywhere."* It does not.
+
+`judge_location` is worth keeping for exactly the case that makes the old sentence wrong: an
+`ollama_host` that looks like loopback and forwards elsewhere — an SSH tunnel, or the proxy
+variables `urllib` honours — which only the person running it knows about.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 116 | the statement claiming a cloud transport again | `test_a_declared_cloud_judge_on_a_local_host_does_not_claim_a_transport` | RED (2) |
+| 117 | the declaration ignored, address only | `test_a_declared_tunnel_is_recorded_as_having_left` | RED (2) |
+| 118 | the answer recorded only at tier 1 | `test_tier_zero_keeps_the_declaration_that_tier_zero_erases` | RED (2) |
+| 119 | the answer not recorded at all | `test_the_stamp_records_whether_the_material_stayed_here` | RED (5) |
+| 120 | an unrecorded answer defaulting to "it stayed" | `test_a_stamp_from_an_older_corpus_still_loads` | RED |
+| 121 | a stamped field missing from the README's list | `test_the_readme_lists_every_stamped_field` | RED |
+
+### The walk found the hole in my own fix, an hour after I opened it
+
+The first version added `host_is_local` to the stamp — the address, which is what actually
+decides the transport. 661 tests green. Walking every combination of the three settings that
+reach it:
+
+```
+host        declared  tier  judge_location  host_is_local
+localhost   cloud     0     ''              True
+```
+
+`judge.stamp()` blanks `judge_location` at tier 0, reasonably, because no judge ran. But the
+declaration is **not a property of the judge** — it is the user's correction to the host, and
+embeddings go to that same host at both tiers. So the correction lived only in the field that
+is erased half the time, and a tier-0 verdict from a tunnelled host read back as *never left
+the machine* while every embedding went through the tunnel.
+
+The fix that was supposed to close the hole closed it at tier 1 and left it open at tier 0.
+No red test would have found that: the tests I had written all set a judge model.
+
+So the stamp records the ANSWER — `stayed_on_this_machine`, the address AND the user's
+correction, at both tiers — and `judge_location` stays what it is, the tier-1 declaration.
+
+### Row 121 survived first, because I had widened the window myself
+
+Deleting the field from the README's enumeration left the suite green. The check takes a
+window after the marker and looks for each phrase anywhere in it — and **I had widened that
+window from 400 to 900 characters an hour earlier**, to fit a longer paragraph. The paragraph
+explaining the field then stood in for the list that is supposed to name it.
+
+Its own docstring says what it is for: *"it named five of seven ... which is how a guarantee
+quietly stops covering the field nobody listed."* Cut to the first sentence now, which is the
+enumeration and nothing else.

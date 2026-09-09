@@ -198,7 +198,12 @@ def test_the_readme_lists_every_stamped_field(tmp_path):
 
     readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
     # Collapse wrapping: the promise spans lines, so a phrase can be split across one.
-    promise = re.sub(r"\s+", " ", readme.split("Every verdict records what judged it")[1][:400])
+    collapsed = re.sub(r"\s+", " ", readme.split("Every verdict records what judged it")[1])
+    # The ENUMERATION is the first sentence, and only that. Reading a wider window let the
+    # paragraph that explains a field stand in for the list that is supposed to name it:
+    # deleting the field from the list left this test green, because the explanation below
+    # still mentioned it.
+    promise = collapsed.split(". ")[0]
 
     english = {
         "tier": "tier",
@@ -208,6 +213,7 @@ def test_the_readme_lists_every_stamped_field(tmp_path):
         "judge_location": "judge location",
         "prompt_version": "prompt version",
         "pack_version": "pack version",
+        "stayed_on_this_machine": "whether the material stayed on this machine",
     }
     fields = [f.name for f in dataclasses.fields(JudgeStamp)]
     assert set(fields) == set(english), f"JudgeStamp gained or lost a field: {fields}"

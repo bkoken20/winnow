@@ -152,8 +152,12 @@ def test_status_reports_privacy_and_corpus(offline_cli, capsys):
     assert "PRIVACY:" in output
     assert "never transmitted" in output
     assert "NOT FULLY LOCAL" not in output
-    assert "0 claims" in output
-    assert "below the" in output  # the coverage warning
+    # This asserted "0 claims" and "below the ... minimum" -- reports that were only
+    # produced because `status` CREATED an empty database in order to count it. A
+    # diagnostic that alters what it reports on is the defect, so the test that pinned the
+    # symptom had to change with it. On a machine with no corpus, saying so IS the report.
+    assert "no corpus yet" in output
+    assert "winnow index" in output  # and what to run to make one
 
 
 def test_packs_lists_the_shipped_pack(offline_cli, capsys):

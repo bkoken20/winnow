@@ -108,10 +108,18 @@ def _run(func, args) -> int:
 def cmd_status(args) -> int:
     """Report configuration and corpus health.
 
+    OBSERVES ONLY. `Store()` creates missing parent directories and opens SQLite, which
+    creates the file -- so this command used to leave a `winnow.db` on a fresh machine that
+    nobody had asked for. A diagnostic that alters the thing it reports on is not one.
+
     Returns 6 -- the same code the pipeline raises for it -- when the corpus was built with
     a different embedding model, because a command that prints UNUSABLE and exits 0 lets
-    `winnow status && winnow ingest ...` proceed on a corpus that cannot be searched. It
-    still never crashes: every other failure is caught and reported as text.
+    `winnow status && winnow ingest ...` proceed on a corpus that cannot be searched, and 5
+    for a corpus that cannot be read at all, which is the code the README documents for it.
+    That second case was reported once, fixed only for the mismatch branch, and left
+    returning 0 everywhere else.
+
+    It still never crashes: every failure is caught and reported as text.
     """
     config = Config.load(args.config)
     unusable = False
@@ -124,6 +132,14 @@ def cmd_status(args) -> int:
     print()
     print("PRIVACY:", config.egress_statement())
     print()
+
+    corpus_file = Path(config.corpus_path)
+    if not corpus_file.exists():
+        # Deliberately BEFORE constructing a Store: building one would create the file and
+        # every directory above it. Nothing to report is a complete answer.
+        print(f"corpus holds  : no corpus yet -- {corpus_file} has not been created")
+        print("              : `winnow index <folder>` builds one")
+        return 0
 
     try:
         from .store import Store
@@ -152,8 +168,21 @@ def cmd_status(args) -> int:
                 "Set embed_model back, or start a fresh corpus and re-index."
             )
         store.close()
+    except sqlite3.Error as exc:
+        # A damaged or non-SQLite file. Reported AND failed: `winnow status && winnow
+        # ingest ...` passing over a corpus that cannot be opened is the thing this code
+        # exists to prevent, and 5 is what the README documents for it.
+        print(f"corpus        : unreadable ({exc})", file=sys.stderr)
+        print(f"              : {corpus_file}", file=sys.stderr)
+        return 5
+    except OSError as exc:
+        print(f"corpus        : cannot be opened ({exc})", file=sys.stderr)
+        return 5
     except Exception as exc:  # noqa: BLE001 - status must never crash
-        print(f"corpus        : unreadable ({exc})")
+        # Anything else -- a pack that will not load, a configuration fault. Distinguished
+        # from a database failure because the remedy is different.
+        print(f"corpus        : could not be summarised ({exc})", file=sys.stderr)
+        return 2
     return 6 if unusable else 0
 
 

@@ -214,8 +214,12 @@ def fetch(
             f"no {DEFAULT_CAPTION_LANGS!r} track; trying {CAPTION_TRANSLATION_FALLBACK!r} "
             "(YouTube's machine translation)"
         )
+        # Captions only, whatever the first call was asked for. The fallback is reached
+        # only when that call SUCCEEDED and simply wrote no subtitles, so the media -- if it
+        # was wanted -- is already on disk. Passing with_video through re-requested hundreds
+        # of megabytes that had just been fetched.
         result = _run_yt_dlp(
-            url, dest, CAPTION_TRANSLATION_FALLBACK, with_video, announce
+            url, dest, CAPTION_TRANSLATION_FALLBACK, False, announce
         )
 
     if result.returncode != 0:

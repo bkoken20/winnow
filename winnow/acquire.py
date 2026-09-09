@@ -75,9 +75,21 @@ def looks_like_url(value: str) -> bool:
     return parsed.scheme in ("http", "https") and bool(parsed.netloc)
 
 
+# Extensions Winnow can actually read. A value ending in one of these is a filename even
+# when it also looks like a host, which "README.md" and "talk.txt" both do.
+_READABLE_SUFFIXES = frozenset(
+    {".txt", ".md", ".markdown", ".mdx", ".vtt", ".srt", ".ass", ".ssa", ".sub",
+     ".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4a", ".mp3", ".wav", ".flac", ".json"}
+)
+
 # A host-ish token followed by a path: "youtu.be/x", "www.youtube.com/watch?v=x". Deliberately
 # narrow -- it must not fire on an ordinary relative path like "notes/talk.txt", so a dot in
 # the first segment is required and the part after it has to look like a TLD.
+#
+# Narrow was not narrow enough: a BARE dotted name has no separator either, so "README.md"
+# matched and an existing file was answered with "try https://README.md". The guard test
+# written with the original fix used "notes/talk.txt", which has a separator -- it tested the
+# shape I had in mind rather than the class.
 _HOSTLIKE = re.compile(r"^(?:www\.)?[A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}(?:[/?].*)?$")
 
 
@@ -104,6 +116,12 @@ def why_not_a_url(value: str) -> str | None:
             f"{value!r} starts with {scheme + '://'!r}, which is not a scheme Winnow can "
             "fetch. Use http:// or https:// -- most likely https://"
         )
+
+    # A name ending in something Winnow reads is a filename, not a host. Without this,
+    # `talk.txt` and `2024.report.md` match the host pattern -- "a dotted token" describes a
+    # great many filenames -- and a mistyped one was answered with "try https://talk.txt".
+    if Path(value).suffix.lower() in _READABLE_SUFFIXES:
+        return None
 
     if _HOSTLIKE.match(value):
         return (

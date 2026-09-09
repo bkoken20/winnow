@@ -268,15 +268,19 @@ def cmd_ingest(args) -> int:
                 with_video=args.with_video,
             )
     else:
-        # Before treating it as a path: does it look like a link the user fumbled? Reporting
-        # "no such file or folder: youtu.be\\dQw4w9WgXcQ" answers the wrong question, and
-        # quotes a string they never typed -- Path() has flipped the separators.
-        problem = why_not_a_url(args.path)
-        if problem:
-            print(problem, file=sys.stderr)
-            return 2
         target = Path(args.path)
         if not target.exists():
+            # Only now: it is not on disk, so it may be a link the user fumbled. Reporting
+            # "no such file or folder: youtu.be\\dQw4w9WgXcQ" answers the wrong question and
+            # quotes a string they never typed -- Path() has flipped the separators.
+            #
+            # Existence is checked FIRST because the reverse order read an existing
+            # README.md as a scheme-less link and refused to open a file sitting right
+            # there. A thing that exists is that thing, whatever its name resembles.
+            problem = why_not_a_url(args.path)
+            if problem:
+                print(problem, file=sys.stderr)
+                return 2
             print(f"no such file or folder: {target}", file=sys.stderr)
             return 2
 

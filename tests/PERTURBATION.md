@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**169 behaviours, over twenty-nine rounds.** Every mutation was detected except those recorded
+**175 behaviours, over thirty rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1397,3 +1397,72 @@ message owes both answers, so the test now requires both.
 The first replacement mutation was also ill-formed: it cut one source line out of a string
 that spans four, and "picks up where it" survived in the fragment above. Replacing the whole
 message with its headline is the mutation that removes the behaviour.
+
+## Round thirty — the destination arrived, and the guard waiting for it had never worked
+
+Review item 14 was the one finding that could not be fixed from inside the repository: the
+README said `git clone https://github.com/<you>/winnow.git` and the review's instruction was
+not to invent a destination. It was recorded as a **strict xfail** so that the day a real URL
+replaced the placeholder, the test would pass, `strict=True` would turn passing into a
+failure, and the marker would come off. A blocker held in the suite rather than in a note.
+
+The URL arrived. The xfail did not move.
+
+```
+matches: ['<url>', 'Your ', 'your ']
+```
+
+The check applied the metadata placeholder pattern to the README. `<url>` is the usage line
+`winnow ingest <url|path>`. **`Your ` and `your ` are English** — `\bYOUR[_ ]` under
+`re.IGNORECASE`, against a document written in the second person. The test could not pass
+however many placeholders were fixed, so the mechanism built to notice the answer arriving
+was inert from the moment it was written.
+
+**A test that cannot succeed, standing guard over the one finding that needed a human.** Had
+the URL been supplied and the xfail consulted, the honest reading would have been "still
+blocked" — for ever.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 170 | a clone URL with the placeholder back in it | `test_every_clone_url_in_the_readme_is_real` | RED (2) |
+| 171 | one metadata URL pointing at another repository | `test_the_readme_and_the_metadata_name_the_same_repository` | RED |
+| 172 | the package not saying who wrote it | `test_the_package_says_who_wrote_it` | RED |
+| 173 | `[project.urls]` removed | `test_the_readme_and_the_metadata_name_the_same_repository` | RED |
+| 174 | the placeholder pattern matching prose again | `test_the_placeholder_pattern_does_not_fire_on_ordinary_english` | RED |
+| 175 | the placeholder pattern matching nothing at all | `test_the_placeholder_pattern_still_finds_real_placeholders` | RED |
+
+### Row 171 survived first, on "somewhere" rather than "everywhere"
+
+Pointing `Homepage` at a different repository left the suite green, because the test asked
+whether the clone URL appeared among the metadata URLs and `Source` and `Issues` still held
+it. One wrong link among three is precisely the case worth catching: a Homepage nobody clicks
+is where a stale address survives. Every GitHub URL is checked now, not one of them.
+
+### Row 174 is the defect above, written down as a test
+
+Restoring `re.IGNORECASE` was harmless *today* — the pattern is no longer applied to prose,
+so nothing failed. That is not a reason to leave it unrecorded: it is the exact fault that
+made a guard unable to fire, and the only thing standing between it and a repeat was my
+memory of an afternoon. Now the pattern is asserted, in both directions, against a paragraph
+of ordinary second-person English and against six real placeholders.
+
+### What the walk checked that no test does
+
+The tests read `README.md` and `pyproject.toml`. Neither is what a user receives, and a URL
+in a package is a promise that something is at the other end. So: build the wheel, read its
+METADATA, and resolve every published address against GitHub.
+
+```
+Author-email: bkoken20 <57477482+bkoken20@users.noreply.github.com>
+Project-URL: Homepage, https://github.com/bkoken20/winnow
+Project-URL: Source,   https://github.com/bkoken20/winnow
+Project-URL: Issues,   https://github.com/bkoken20/winnow/issues
+
+https://github.com/bkoken20/winnow        -> bkoken20/winnow, public=True
+https://github.com/bkoken20/winnow.git    -> bkoken20/winnow, public=True
+https://github.com/bkoken20/winnow/issues -> bkoken20/winnow, public=True
+```
+
+And one hazard recorded rather than fixed: the `Issues` URL is checked for naming the right
+repository, not for issues being enabled. If they are ever turned off that link 404s and no
+test here would notice. `has_issues` was true when the repository was checked.

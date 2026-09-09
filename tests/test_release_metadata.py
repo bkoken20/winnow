@@ -18,8 +18,6 @@ import re
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT = ROOT / "pyproject.toml"
 
@@ -120,8 +118,13 @@ def test_the_keywords_describe_what_it_is():
 # Angle-bracket text starting with a letter, plus the usual words. Deliberately not
 # `<[a-z-]+>`, which was the first spelling and let `<your keyword here>` through -- no
 # spaces, no capitals. The leading-letter rule keeps `python_version < '3.11'` out of it.
-PLACEHOLDER = re.compile(r"<[A-Za-z][A-Za-z0-9 _-]{0,38}>|\bYOUR[_ ]|\bTODO\b|\bFIXME\b",
-                         re.IGNORECASE)
+#
+# CASE-SENSITIVE, which it was not. `\bYOUR[_ ]` under `re.IGNORECASE` matches the ordinary
+# English word "your", so applied to any prose written in the second person it fires on every
+# sentence. That is what made `test_the_readme_clone_url_is_real` a test that could not
+# succeed -- and that test was the strict xfail recording the one finding needing a human.
+# A template marker is `YOUR_NAME` in capitals; `your notes` is a sentence.
+PLACEHOLDER = re.compile(r"<[A-Za-z][A-Za-z0-9 _-]{0,38}>|\bYOUR[_ ]|\bTODO\b|\bFIXME\b")
 
 
 def test_no_placeholder_survives_into_the_metadata():
@@ -131,19 +134,99 @@ def test_no_placeholder_survives_into_the_metadata():
     assert not placeholders, f"pyproject.toml still holds placeholders: {placeholders}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="review item 14: the clone URL is not ours to invent -- it needs the real "
-           "repository. When one exists and the README is updated, this test passes, the "
-           "strict marker turns that into a failure, and the marker comes off.",
-)
-def test_the_readme_clone_url_is_real():
-    """The install instructions are the first thing anyone runs, and they cannot work.
+def _clone_urls() -> list[str]:
+    """Every URL a `git clone` line in the README would fetch from.
 
-    `git clone https://github.com/<you>/winnow.git` fails for every reader. This is the one
-    finding in the review that cannot be fixed from inside the repository, so it is recorded
-    where it cannot be forgotten rather than in a note.
+    The URL, not the first token: the starter-corpus section shows
+    `git clone --depth 1 --filter=blob:none ...`, so `\\S+` after `clone` is `--depth`.
     """
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    placeholders = PLACEHOLDER.findall(readme)
-    assert not placeholders, f"README still holds placeholders: {sorted(set(placeholders))}"
+    found = []
+    for line in re.findall(r"git clone\s+(.+)", readme):
+        for token in line.split():
+            if "://" in token:
+                found.append(token)
+                break
+    return found
+
+
+def test_every_clone_url_in_the_readme_is_real():
+    """The install instructions are the first thing anyone runs, so they have to work.
+
+    `git clone https://github.com/<you>/winnow.git` failed for every reader. It was the one
+    finding in the review that could not be fixed from inside the repository, and it was
+    recorded as a STRICT xfail so that supplying the URL would turn the test green, strict
+    would turn green into a failure, and the marker would come off.
+
+    That mechanism never worked. The check applied the metadata placeholder pattern to the
+    README, and that pattern matched `<url>` from the usage line and -- under
+    `re.IGNORECASE` -- the ordinary word "your", which a README written in the second person
+    contains everywhere. The test could not pass however many placeholders were fixed.
+
+    So it asks the question it was always about: does every clone command name a real
+    repository?
+    """
+    urls = _clone_urls()
+
+    assert urls, "the README should tell people how to clone it"
+    for url in urls:
+        assert "<" not in url and ">" not in url, f"unfilled placeholder in a clone URL: {url}"
+        assert url.startswith("https://github.com/"), f"not a GitHub clone URL: {url}"
+        owner_repo = url.removeprefix("https://github.com/").removesuffix(".git")
+        assert owner_repo.count("/") == 1 and all(owner_repo.split("/")), (
+            f"a clone URL needs owner/name: {url}"
+        )
+
+
+def test_the_readme_and_the_metadata_name_the_same_repository():
+    """Two places state where this lives. They cannot say different things."""
+    clone_urls = {u.removesuffix(".git") for u in _clone_urls()}
+    assert len(clone_urls) == 1, f"the README clones from more than one place: {clone_urls}"
+
+    urls = PROJECT.get("urls", {})
+    assert urls, "pyproject should carry [project.urls]"
+
+    repository = clone_urls.pop()
+    # EVERY GitHub URL, not merely one of them. Pointing `Homepage` somewhere else while
+    # `Source` and `Issues` stayed correct passed a test that asked only whether the clone
+    # URL appeared SOMEWHERE -- and a Homepage nobody checks is exactly where a stale
+    # address survives.
+    wrong = {
+        name: url
+        for name, url in urls.items()
+        if "github.com" in url and not url.startswith(repository)
+    }
+    assert not wrong, (
+        f"the README clones {repository} and these point elsewhere: {wrong}"
+    )
+
+
+def test_the_placeholder_pattern_does_not_fire_on_ordinary_english():
+    """The defect that made the clone-URL guard unable to pass, recorded as a test.
+
+    `\bYOUR[_ ]` under `re.IGNORECASE` matches the word "your". Applied to a README written
+    in the second person it fires on every other sentence, so the check could never go
+    green however many placeholders were fixed -- and it was the check standing in for the
+    one review finding that needed a human.
+    """
+    prose = (
+        "Your material never leaves by default. Your notes, transcripts and the claims "
+        "extracted from them are never transmitted, and your corpus stays where you put it. "
+        "Pass `winnow ingest <url>` a link, or a folder of your own."
+    )
+
+    assert not PLACEHOLDER.findall(prose.replace("<url>", "a link")), (
+        "the pattern matches ordinary English, so any prose check using it can never pass"
+    )
+
+
+def test_the_placeholder_pattern_still_finds_real_placeholders():
+    """The mirror: a pattern that matches nothing is worse than one that over-matches."""
+    for template in ("<you>", "<your name here>", "YOUR_NAME", "YOUR TOKEN", "TODO", "FIXME"):
+        assert PLACEHOLDER.findall(template), f"{template!r} is a placeholder and was missed"
+
+
+def test_the_package_says_who_wrote_it():
+    authors = PROJECT.get("authors", [])
+    assert authors, "a published package should say who is behind it"
+    assert all(a.get("name") for a in authors), f"an author needs a name: {authors}"

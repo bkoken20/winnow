@@ -61,7 +61,7 @@ The cutoffs, and what happens in each band, are in
 Fourteen minutes from clone to a real verdict, measured on a 12 GB consumer GPU:
 
 ```bash
-git clone https://github.com/<you>/winnow.git && cd winnow
+git clone https://github.com/bkoken20/winnow.git && cd winnow
 pip install -e .                    # the `winnow` command
 pip install -U yt-dlp               # only if you want to pass URLs
 
@@ -187,7 +187,7 @@ Winnow is distributed by clone, not as a package — it needs a model server, mo
 (optionally) ffmpeg, so a package install could never produce a working tool on its own.
 
 ```bash
-git clone https://github.com/<you>/winnow.git
+git clone https://github.com/bkoken20/winnow.git
 cd winnow
 pip install -e .                         # installs the `winnow` command
 pip install -U yt-dlp                    # only to pass URLs; Winnow never installs it for you
@@ -308,7 +308,7 @@ deserve to be told about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. 169 behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. 175 behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by

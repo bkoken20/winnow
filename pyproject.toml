@@ -21,6 +21,9 @@ keywords = [
     "local-llm",
     "knowledge-base",
 ]
+# The address on the commits this repository already carries. GitHub's noreply form, so
+# publishing it exposes nothing that 82 commits do not already say.
+authors = [{ name = "bkoken20", email = "57477482+bkoken20@users.noreply.github.com" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -35,6 +38,11 @@ classifiers = [
     "Topic :: Multimedia :: Video",
     "Topic :: Text Processing :: Linguistic",
 ]
+
+[project.urls]
+Homepage = "https://github.com/bkoken20/winnow"
+Source = "https://github.com/bkoken20/winnow"
+Issues = "https://github.com/bkoken20/winnow/issues"
 
 [project.scripts]
 winnow = "winnow.cli:main"

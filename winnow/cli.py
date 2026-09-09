@@ -380,10 +380,15 @@ def cmd_ingest(args) -> int:
         # as designed.
         needs_video = args.with_video and find_media_file(target) is None
         if cached and not needs_video and not args.refetch:
-            print(f"using cached material in {target}")
+            # Flushed: this is printed before a run that can take minutes, and stdout
+            # is block-buffered the moment it is not a terminal. Unflushed, a redirected
+            # log showed it AFTER the three pass announcements it precedes by four lines,
+            # because those go to stderr, which Python line-buffers. Same reasoning as
+            # acquire.announce_flushed, which had it for the yt-dlp line only.
+            print(f"using cached material in {target}", flush=True)
         else:
             if cached and needs_video:
-                print("cached captions found, but --with-video needs the video too")
+                print("cached captions found, but --with-video needs the video too", flush=True)
             fetch(
                 args.path,
                 target,

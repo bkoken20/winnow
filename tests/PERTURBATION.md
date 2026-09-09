@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**202 behaviours, over thirty-four rounds.** Every mutation was detected except those recorded
+**205 behaviours, over thirty-five rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1713,3 +1713,61 @@ aborted -- and `winnow/extract.py` was left holding a stray `print`. Found by re
 diff` rather than by anything failing. The harness now restores first and judges after, and
 an additive mutation is written so the anchor is BROKEN: the new line goes between two lines
 of a two-line anchor, never appended to a one-line one.
+
+## Round thirty-five -- the progress arrived out of order, and only in a log
+
+Walking round thirty-four's own output found it. A real ingest, redirected to a file:
+
+```
+transcript: winnow-cache\youtu-be-IH8XmxiwliQ-7ba82fc9\video.en-orig.vtt
+pass 1 of 3: 2000-character chunks, 11 model calls
+pass 2 of 3: 1000-character chunks, 22 model calls
+pass 3 of 3: 4000-character chunks, 6 model calls
+using cached material in winnow-cache\youtu-be-IH8XmxiwliQ-7ba82fc9
+72 claims after de-duplication in 4.8 minutes
+```
+
+`using cached material` is printed BEFORE the pipeline is built -- four lines before the
+first pass can start -- and appears fifth. The announcements go to stderr, which Python
+line-buffers; that one went to stdout, which is block-buffered the moment it is not a
+terminal. It sat in a buffer for five minutes while the run it described went past it, and
+the log says the cache was consulted after the work finished.
+
+**The reasoning was already written down, one layer below.** `acquire.announce_flushed`
+exists, and its docstring diagnoses precisely this:
+
+> A bare `print` is block-buffered when stdout is a pipe, so piped into a log, `| tee` or CI
+> the announcement sat in the buffer while yt-dlp ran and failed, and the user read the
+> error ABOVE the command that caused it. Observed against a real 429 from YouTube.
+
+Applied to the line that motivated it and to nothing else. Same family as the three wiring
+gaps in earlier rounds: a lesson learned at one call site, not turned into a property.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 203 | the cache announcement stops flushing | `test_every_status_line_before_the_work_reaches_the_user_when_it_is_written` | RED (2) |
+| 204 | the `--with-video` notice stops flushing | `test_a_command_that_reports_progress_does_not_split_it_across_two_streams` | RED (2) |
+| 205 | the flushed/unflushed distinction removed | `test_the_check_can_tell_the_two_apart` | RED (3) |
+
+### Row 205 was first killed for the wrong reason
+
+Replacing the helper's body with `return True` left its `stream` variable unused, and the
+run went red -- in the **pyflakes** test, not in anything asserting the helper works. A
+mutation caught by a linter noticing dead code is indistinguishable from an uncaught one as
+soon as the dead code is tidied away, and every result in the file depends on that helper.
+Given its own parametrised test over six real `print` forms, and re-perturbed with a body
+that leaves nothing unused, it dies on three assertions about what it is for.
+
+### Why this is checked structurally
+
+Reproducing the defect needs real block buffering AND a real model behind it, and CI has
+neither. What is asserted instead is the property that makes the ordering right: a status
+line printed before the work starts must leave Python's buffers when it is written. The
+cutoff is derived from the source -- everything before the function's `Pipeline.build` call
+-- so a summary printed AFTER the work is correctly ignored. It is a result, not progress:
+nothing follows that could overtake it. The first draft of that test lacked the cutoff for
+`cmd_index` and `cmd_rejudge` and demanded flushing on their closing summary lines, which is
+ceremony with no failure behind it.
+
+Confirmed in a real redirected run after the fix: `using cached material` first, then
+`destination:`, `transcript:`, and the three passes in order.

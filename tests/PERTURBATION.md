@@ -3,11 +3,18 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**26 behaviours, over five rounds.** Every mutation was detected except the three recorded
-below as GREEN — two of which turned out to be faults in the mutation rather than gaps in
+**48 behaviours, over eleven rounds.** Every mutation was detected except those recorded
+below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
+*(This line said "26 behaviours, over five rounds" while the tables below held 48 rows across
+eleven rounds. An external review caught it. The count-sync test compares the README against
+the ROW COUNT and passes — it had never been asked to read this document's own summary of
+itself. A file about checking claims carried an unchecked one at the top.)*
+
 Reproduce by applying the mutation, running the named test, and reverting.
+
+## Round one — the enforced behaviours
 
 | # | mutation applied | test | result |
 |---|---|---|---|
@@ -357,6 +364,26 @@ with unrelated subjects: 30 of 30 red.
 
 **A fixture that cannot reproduce the defect is a test that cannot fail**, and it looked like
 a passing grade for the code.
+
+### Two ways a perturbation result can be worthless, both hit in one sitting
+
+Recorded here because both produce a confident answer that means nothing, and neither is
+visible in the output.
+
+**A mutation that does not land.** `str.replace` returns the string unchanged when its
+anchor does not match, so a perturbation script with no assertion happily writes the
+ORIGINAL file back, runs the suite against it, and reports SURVIVED. The test was never
+challenged. Every perturbation must assert that the file actually changed and that the
+defect is present in the new text.
+
+**A perturbation run against an already-red test.** If the suite is failing for any other
+reason when the mutation is applied, the run reports KILLED whichever way the mutation went.
+The result is indistinguishable from success. Confirm green BEFORE mutating, every time.
+
+Both happened while fixing review item 2: the first perturbation reported KILLED because the
+test was already failing on unrelated prose, and the second reported SURVIVED because the
+anchor never matched. Two results, no evidence, and only re-running properly showed the
+check does work.
 
 ### Two mutations that came back GREEN, and what each meant
 

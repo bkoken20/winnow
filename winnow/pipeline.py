@@ -51,6 +51,31 @@ def foreign_embed_models(store, pack: str, current: str) -> list[str]:
     return sorted(store.embed_models_in_use(pack) - {current})
 
 
+def announce_test_backend(config: Config, *, stream=None) -> None:
+    """Say that the offline test embedder makes every number meaningless.
+
+    `embed_backend: "hashing"` hashes the text: two claims that say the same thing in
+    different words score no closer than two unrelated ones. Only `ingest` said so, and only
+    after the fact, on the verdicts. So a whole corpus could be BUILT with it, and re-judged
+    with it, in silence -- and `status` printed it as an ordinary configuration value beside
+    the model name, which reads as a setting rather than a problem.
+
+    Printed from `Pipeline.build`, the choke point every processing path passes, for the
+    same reason `announce_destination` is: a warning that each command has to remember to
+    print is one that the next command will not.
+    """
+    if config.embed_backend != "hashing":
+        return
+    print(
+        "WARNING: embed_backend is 'hashing', the offline test backend. It hashes the "
+        "text instead of understanding it, so every similarity is meaningless and any "
+        "corpus built or judged this way means nothing. Set embed_backend to 'ollama' "
+        "for real work.",
+        file=stream or sys.stderr,
+        flush=True,
+    )
+
+
 def announce_transcript(path: Path, *, stream=None) -> None:
     """Name the file the claims are about to come from.
 
@@ -157,6 +182,7 @@ class Pipeline:
         pipeline = cls(config, store, pack, extractor, judge, llm)
         pipeline.check_corpus_embeddings()
         announce_destination(config)
+        announce_test_backend(config)
         return pipeline
 
     def check_corpus_embeddings(self) -> None:

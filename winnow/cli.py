@@ -30,7 +30,11 @@ from .acquire import (
 )
 from .embed import build_embedder
 from .media import find_media_file
-from .pipeline import CorpusEmbeddingMismatch, foreign_embed_models
+from .pipeline import (
+    CorpusEmbeddingMismatch,
+    announce_test_backend,
+    foreign_embed_models,
+)
 from .models import NOVELTY_KNOWN, NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
 from .packs import InvalidPack, available_packs, find_pack
 
@@ -158,6 +162,10 @@ def cmd_status(args) -> int:
     print()
     print("PRIVACY:", config.egress_statement())
     print()
+    # `status` never builds a Pipeline, so it does not get the warning from the choke
+    # point and has to say it itself. It is the command someone runs when results look
+    # wrong, which is exactly when a corpus of hashed noise is the answer.
+    announce_test_backend(config, stream=sys.stdout)
 
     corpus_file = Path(config.corpus_path)
     if not corpus_file.exists():

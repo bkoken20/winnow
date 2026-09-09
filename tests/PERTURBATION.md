@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**136 behaviours, over twenty-three rounds.** Every mutation was detected except those recorded
+**140 behaviours, over twenty-four rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1050,3 +1050,54 @@ The Ollama embedder constructs a client and does not connect until it is asked t
 the diagnostic still touches no network. And running the old comparison beside the new one
 over every corpus/backend pair showed them differing in exactly the two hashing cases and
 agreeing in the other four — which is why this survived every test the repository had.
+
+## Round twenty-four — a whole corpus of noise could be built in silence
+
+`embed_backend: "hashing"` hashes the text instead of understanding it: two claims that say
+the same thing in different words score no closer than two unrelated ones. Every similarity
+it produces is noise, and only `ingest` said so — after the fact, attached to the verdicts.
+Measured on the others:
+
+```
+status   exit 0   "embeddings    : nomic-embed-text via hashing"   (a config line)
+index    exit 0   no mention of hashing at all
+rejudge  exit 0   no mention of hashing at all
+```
+
+So a corpus could be built entirely with it and re-judged with it without a word, and
+`status` — the command someone runs when results look wrong — printed it beside the model
+name as an ordinary setting rather than the answer.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 137 | the choke point not warning | `test_index_says_so_before_building_a_corpus_of_noise` | RED (2) |
+| 138 | `status` not warning | `test_status_calls_the_test_backend_what_it_is` | RED |
+| 139 | the warning firing for the wrong backend | `test_a_real_backend_is_not_warned_about` | RED (4) |
+| 140 | the warning firing for every backend | `test_a_real_backend_is_not_warned_about` | RED |
+
+Printed from `Pipeline.build`, the same choke point `announce_destination` uses, for the same
+reason: a warning each command has to remember to print is one the next command will not.
+`status` builds no pipeline, so it says it itself.
+
+### What the walk settled
+
+Every command, both backends, both streams:
+
+```
+              hashing              ollama
+status        stdout               silent
+packs         NOWHERE              silent
+index         stderr               -
+rejudge       stderr               -
+ingest        stderr               -
+```
+
+`packs` not warning is correct and worth having checked rather than assumed: it builds no
+pipeline, reads no corpus and issues no verdict, so there is nothing to mistrust.
+
+The stream split is also deliberate and now verified rather than intended: `status` writes
+its report to stdout so the warning belongs there, while `Pipeline.build` writes to stderr
+beside the destination line, so a script parsing verdicts out of stdout is not disturbed.
+
+`ingest` carries two messages now — one before the work and one attached to the results.
+Counted: one each, not a doubled sentence.

@@ -179,6 +179,25 @@ class Pipeline:
         # embedding model exactly as it does to the extraction model.
         vectors = [self.judge.embedder.embed(claim.text) for claim in claims]
 
+        return self._commit_note(path, sid, claims, vectors)
+
+    def _prepare_note(self, path: Path):
+        """Everything a note costs, with nothing written. Returns (sid, claims, vectors).
+
+        Split out so the cost gate can MEASURE a real unit without committing it. Indexing
+        the sample and then refusing the run left the sample's source and claims in the
+        corpus while telling the user nothing had started -- and `skip_known` then hid that
+        file from the accepted retry. The gate's promise is that you see a number before
+        anything happens, and the measurement is part of "anything".
+        """
+        text = path.read_text(encoding="utf-8", errors="replace")
+        sid = source_id_for(path)
+        claims = self.extractor.extract(text, sid)
+        vectors = [self.judge.embedder.embed(claim.text) for claim in claims]
+        return sid, claims, vectors
+
+    def _commit_note(self, path: Path, sid: str, claims, vectors) -> int:
+        """The write half: source first for the foreign key, then the claims it owns."""
         self.store.add_source(
             Source(id=sid, pack=self.pack.name, kind="note", path=str(path), title=path.stem)
         )
@@ -224,8 +243,11 @@ class Pipeline:
             self.pack.name, self.judge.embedder.embed("cost probe")
         )
 
-        first_claims, unit_seconds = time_one(self.index_note, sample)
-        claims_per_file = max(int(first_claims), 1)
+        # Measure the sample WITHOUT writing it. Committing here and gating afterwards meant
+        # a refused run had already changed the corpus.
+        prepared, unit_seconds = time_one(self._prepare_note, sample)
+        sample_sid, sample_claims, sample_vectors = prepared
+        claims_per_file = max(len(sample_claims), 1)
 
         # The measured unit time ALREADY contains the sample's own de-duplication scanning,
         # so projecting dedupe on top of it counts the same work twice -- which over-stated
@@ -245,10 +267,13 @@ class Pipeline:
             corpus_claims_at_start=corpus_before,
             expected_new_claims=claims_per_file * len(files),
         )
+        # Raises if the projection is not covered. Nothing has been written yet, so a
+        # refusal leaves the corpus exactly as it was found and the retry sees every file.
         gate(projection, accepted_by_flag(accept_minutes, projection))
-        files = [p for p in files if p != sample]
 
-        total = int(first_claims)
+        # Accepted: the sample's work is already done, so commit it rather than redo it.
+        total = self._commit_note(sample, sample_sid, sample_claims, sample_vectors)
+        files = [p for p in files if p != sample]
         for path in files:
             total += self.index_note(path)
         return {"files": len(files) + 1, "claims": total, "projection": projection}

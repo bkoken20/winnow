@@ -3,18 +3,51 @@ name = "winnow"
 version = "0.1.0"
 description = "Give it a YouTube link; it tells you what the video says that you do not already know."
 readme = "README.md"
-license = { file = "LICENSE" }
+# PEP 639: an SPDX expression plus the files it refers to. The `{ file = "LICENSE" }` table
+# this replaces is deprecated from setuptools 77, which is why the build requirement below
+# moved with it.
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+# Deliberately empty. The runtime is standard library only; yt-dlp is called as a command and
+# is never installed on the user's behalf (docs/ACQUISITION.md says why).
 dependencies = []
+keywords = [
+    "youtube",
+    "transcripts",
+    "novelty-detection",
+    "embeddings",
+    "ollama",
+    "local-llm",
+    "knowledge-base",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Text Processing :: Linguistic",
+]
 
 [project.scripts]
 winnow = "winnow.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pyflakes>=3.0"]
+# tomli only below 3.11, where tomllib does not exist yet. The metadata tests read
+# pyproject.toml with a real TOML parser rather than regular expressions: a second,
+# hand-rolled parser can disagree with the first, and then a check passes on one Python and
+# fails on another for reasons that have nothing to do with the thing being checked.
+dev = ["pytest>=7.0", "pyflakes>=3.0", "tomli>=2.0; python_version < '3.11'"]
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]  # 77 is where PEP 639 `license = "MIT"` is understood
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

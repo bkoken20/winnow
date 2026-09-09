@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**76 behaviours, over fourteen rounds.** Every mutation was detected except those recorded
+**82 behaviours, over fifteen rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -544,3 +544,62 @@ had stopped working while the new spelling worked fine.
 
 Written before the fix, the guard existed only because the failure mode was obvious in the
 abstract. It then happened.
+
+## Round fifteen — what a listing page would say, and whether it is true
+
+`pyproject.toml` carried a name, a version and a description. No classifiers, no keywords, a
+`license = {file = "LICENSE"}` table that setuptools 77 deprecates, and two independently
+declared versions -- `winnow/__init__.py` and `pyproject.toml` -- that nothing compared.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 77 | the two declared versions disagreeing | `test_the_two_declared_versions_agree` | RED (2) |
+| 78 | the licence back to the deprecated table form | `test_the_licence_is_declared_the_modern_way` | RED |
+| 79 | `license-files` emptied | `test_the_licence_is_declared_the_modern_way` | RED |
+| 80 | a classifier claiming a Python below `requires-python` | `test_there_are_classifiers_and_they_do_not_contradict_requires_python` | RED |
+| 81 | a placeholder left in the metadata | `test_no_placeholder_survives_into_the_metadata` | RED |
+| 82 | `Typing :: Typed` claimed with no `py.typed` marker | `test_a_typed_claim_ships_the_marker_that_makes_it_true` | RED |
+
+Row 82 is a classifier I added in this round and removed in the same one. `Typing :: Typed`
+tells a type checker to read the package's annotations; what a checker actually reads is
+`winnow/py.typed`, which does not exist. The classifier is dropped, and the test now ties the
+two together in both directions, so neither can arrive alone.
+
+Row 81 SURVIVED on its first run. The check was `<[a-z-]+>|YOUR[_ ]|TODO|FIXME` and the
+mutation inserted `<your keyword here>` -- no spaces allowed by the pattern, and `YOUR` only
+in capitals. **A check that recognises the two spellings its author thought of**, which is
+the same fault as a link check that only sees the links that existed when it was written.
+Widened, then RED.
+
+### A third way a perturbation result can be worthless: stale bytecode
+
+The two already recorded are a mutation that never lands and a run against an already-red
+suite. This one is worse, because the file on disk is correct while the code being executed
+is not.
+
+Mutating `__version__ = "0.1.0"` to `"0.2.0"` and restoring it left this:
+
+```
+source mtime 1788931359.44  size 613
+pyc records  1788931359     size 613
+imported version: 0.2.0        <- the file on disk said 0.1.0
+```
+
+Python validates a cached `.pyc` against the source's mtime **in whole seconds** and its
+size. The mutation and the restore happened inside one second, and `"0.2.0"` is the same
+length as `"0.1.0"`, so the cache compiled from the mutated source looked current. The next
+run reported a failure for a mutation that had already been reverted -- and with the polarity
+reversed it would have reported SURVIVED for a guard that works perfectly.
+
+Any same-length mutation is exposed: a digit, a comparison operator, a swapped identifier of
+equal length. **The harness now deletes the cached bytecode for every file it writes**, on
+the way in and on the way out.
+
+### Review item 14 now lives in the suite
+
+The README still says `git clone https://github.com/<you>/winnow.git`, and the review's own
+instruction is not to invent a destination to make the placeholder go away. So
+`test_the_readme_clone_url_is_real` is a **strict** xfail: it records that the install
+instructions cannot work for any reader, and the day a real repository URL replaces the
+placeholder the test passes, the strict marker turns that into a failure, and the marker
+comes off. A blocker in the suite rather than in a note.

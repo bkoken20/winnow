@@ -183,7 +183,7 @@ git clone https://github.com/<you>/winnow.git
 cd winnow
 pip install -e .                         # installs the `winnow` command
 pip install -U yt-dlp                    # only to pass URLs; Winnow never installs it for you
-pip install -r requirements.txt          # pytest and pyflakes, only to run the tests
+pip install -r requirements.txt          # pytest, pyflakes, and tomli below 3.11 -- only to run the tests
 ```
 
 You also need [Ollama](https://ollama.com) running, with:
@@ -284,7 +284,7 @@ precisely the thing you deserve to be warned about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. Seventy-six behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. Eighty-two behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by

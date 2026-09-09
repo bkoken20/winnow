@@ -28,8 +28,9 @@ from .acquire import (
     looks_like_url,
     why_not_a_url,
 )
+from .embed import build_embedder
 from .media import find_media_file
-from .pipeline import CorpusEmbeddingMismatch
+from .pipeline import CorpusEmbeddingMismatch, foreign_embed_models
 from .models import NOVELTY_KNOWN, NOVELTY_NEW, NOVELTY_UNKNOWN, NOVELTY_VARIANT
 from .packs import InvalidPack, available_packs, find_pack
 
@@ -184,13 +185,24 @@ def cmd_status(args) -> int:
         # Status is where someone looks when results seem wrong, so it has to surface the
         # one condition that makes a full corpus behave like an empty one. It builds its
         # own Store rather than a Pipeline, so it does not get the constructor's check for
-        # free and has to ask the same question itself.
-        foreign = sorted(store.embed_models_in_use(config.pack) - {config.embed_model})
+        # free -- but it asks through the SAME function the pipeline uses, against the
+        # SAME name.
+        #
+        # It used to compare against `config.embed_model`, which is what the file says,
+        # while the pipeline compares against `embedder.name`, which is what the embedder
+        # in use calls itself. Equal for the Ollama backend; not for the hashing one, whose
+        # name is 'hashing-256'. So a corpus built with `embed_backend: "hashing"`, read
+        # with the very settings that built it, was reported UNUSABLE and exited 6 while
+        # `index` and `ingest` on the same corpus ran happily.
+        embedder = build_embedder(
+            config.embed_backend, config.embed_model, config.ollama_host
+        )
+        foreign = foreign_embed_models(store, config.pack, embedder.name)
         if foreign:
             unusable = True
             print(
                 f"              : UNUSABLE -- these claims were embedded with "
-                f"{', '.join(repr(m) for m in foreign)}, not {config.embed_model!r}. "
+                f"{', '.join(repr(m) for m in foreign)}, not {embedder.name!r}. "
                 "They cannot be compared against anything, so every claim would look new. "
                 "Set embed_model back, or start a fresh corpus and re-index."
             )

@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**132 behaviours, over twenty-two rounds.** Every mutation was detected except those recorded
+**136 behaviours, over twenty-three rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1005,3 +1005,48 @@ of the constructor. `Path.resolve().as_uri()` percent-encodes both (`%23`, `%3F`
 
 Green at 675 tests when the walk started. No test had an awkward character in a path, and
 none would have: the fixtures all use `tmp_path`, which is tidy by construction.
+
+## Round twenty-three — one question, two implementations, two answers
+
+The pipeline refuses a corpus whose stored embedding model is not the one in use, comparing
+against `embedder.name`. `status` did the same check by hand, comparing against
+`config.embed_model`. Those strings are equal for the Ollama backend and not for the hashing
+one:
+
+```
+backend=hashing   config.embed_model='nomic-embed-text'   embedder.name='hashing-256'
+```
+
+So on a corpus built with `embed_backend: "hashing"`, read back with **exactly the settings
+that built it**, `winnow status` printed `UNUSABLE -- these claims were embedded with
+'hashing-256', not 'nomic-embed-text'` and exited 6 — while `index` and `ingest` on the same
+corpus ran without complaint, because they ask the embedder rather than the file.
+
+The review reported it as a comparison mismatch. The false `UNUSABLE` is what it causes, and
+it is the same shape as round twenty: the command whose job is to tell you whether something
+is wrong, telling you something alarming that is not true.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 133 | `status` comparing against the file's model name again | `test_status_does_not_cry_mismatch_over_a_corpus_it_just_built` | RED (2) |
+| 134 | the model in use not excluded from the foreign list | `test_the_comparison_is_one_function` | RED (19) |
+| 135 | the pipeline no longer refusing a foreign corpus | `test_the_pipeline_still_refuses_a_foreign_corpus` | RED (3) |
+| 136 | `status` no longer reporting a real mismatch | `test_status_still_reports_a_real_mismatch` | RED (4) |
+
+The comparison is now one function, `foreign_embed_models`, called by both. Two copies is not
+a duplication problem to tidy up later — it is how the two answers came to differ at all.
+
+### What the walk checked that the tests do not
+
+`status` now calls `build_embedder`, which is new work inside a command whose whole
+contract is that it does none. Walked with `socket.socket` replaced by a tripwire:
+
+```
+build_embedder('hashing') -> name='hashing-256'       no socket opened
+build_embedder('ollama')  -> name='nomic-embed-text'  no socket opened
+```
+
+The Ollama embedder constructs a client and does not connect until it is asked to embed, so
+the diagnostic still touches no network. And running the old comparison beside the new one
+over every corpus/backend pair showed them differing in exactly the two hashing cases and
+agreeing in the other four — which is why this survived every test the repository had.

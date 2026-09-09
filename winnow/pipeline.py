@@ -39,6 +39,18 @@ class CorpusEmbeddingMismatch(RuntimeError):
     """
 
 
+def foreign_embed_models(store, pack: str, current: str) -> list[str]:
+    """Stored embedding models that are not the one in use, sorted.
+
+    One function because two callers ask this: the pipeline, which refuses to run, and
+    `winnow status`, which reports. `current` is the EMBEDDER'S name -- what the embedder in
+    use calls itself -- not `config.embed_model`, which is what the file says. The two are
+    equal for the Ollama backend and not for the hashing one, which is how the second copy
+    of this comparison came to answer differently from the first.
+    """
+    return sorted(store.embed_models_in_use(pack) - {current})
+
+
 def announce_transcript(path: Path, *, stream=None) -> None:
     """Name the file the claims are about to come from.
 
@@ -149,9 +161,8 @@ class Pipeline:
 
     def check_corpus_embeddings(self) -> None:
         """Refuse to run against a corpus embedded by a different model."""
-        in_use = self.store.embed_models_in_use(self.pack.name)
         current = self.judge.embedder.name
-        foreign = sorted(in_use - {current})
+        foreign = foreign_embed_models(self.store, self.pack.name, current)
         if not foreign:
             return
         raise CorpusEmbeddingMismatch(

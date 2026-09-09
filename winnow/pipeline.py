@@ -59,8 +59,27 @@ def announce_destination(config: Config, *, stream=None) -> None:
           file=stream or sys.stderr, flush=True)
 
 
+def canonical_path(path: Path) -> str:
+    """One spelling per file, used for BOTH the source id and the remembered path.
+
+    `source_id_for` always hashed the resolved path, while the source row stored the string
+    as typed and `skip_known` compared those raw strings. So identity and memory disagreed:
+    indexing a folder by a relative path and then by its absolute one re-extracted
+    every file at full model cost
+    and then replaced the very rows it had duplicated the work for, because the ids matched
+    even though the strings did not. On Windows and macOS, `Notes` and `notes` did the same.
+
+    (No literal drive letter above, on purpose: the tracked-files guard against
+    machine paths cannot tell an example from a real one, and should not have to.)
+
+    `resolve()` also settles case on filesystems that do not distinguish it, which is why it
+    is the whole answer rather than half of one.
+    """
+    return str(path.resolve())
+
+
 def source_id_for(path: Path) -> str:
-    return hashlib.blake2b(str(path.resolve()).encode("utf-8"), digest_size=10).hexdigest()
+    return hashlib.blake2b(canonical_path(path).encode("utf-8"), digest_size=10).hexdigest()
 
 
 @dataclass
@@ -199,7 +218,8 @@ class Pipeline:
     def _commit_note(self, path: Path, sid: str, claims, vectors) -> int:
         """The write half: source first for the foreign key, then the claims it owns."""
         self.store.add_source(
-            Source(id=sid, pack=self.pack.name, kind="note", path=str(path), title=path.stem)
+            Source(id=sid, pack=self.pack.name, kind="note",
+                   path=canonical_path(path), title=path.stem)
         )
         stored = 0
         for claim, vector in zip(claims, vectors):
@@ -222,7 +242,7 @@ class Pipeline:
         )
         if skip_known:
             known = self.store.source_paths(self.pack.name)
-            files = [p for p in files if str(p) not in known]
+            files = [p for p in files if canonical_path(p) not in known]
         if not files:
             return {"files": 0, "claims": 0, "projection": None}
 
@@ -456,7 +476,7 @@ class Pipeline:
                 id=sid,
                 pack=self.pack.name,
                 kind="media",
-                path=str(target),
+                path=canonical_path(target),
                 title=target.stem,
             )
         )

@@ -116,6 +116,14 @@ def _run(func, args) -> int:
     except PermissionError as exc:
         print(f"permission denied: {exc}", file=sys.stderr)
         return 2
+    except OSError as exc:
+        # Everything else the filesystem can say. FileNotFoundError and PermissionError above
+        # are the two Windows produces for the mistakes I make, so they were the two that got
+        # handled -- and `--config <a directory>` raises IsADirectoryError on Linux and macOS
+        # instead, which meant the same typo was a sentence here and a traceback there. A
+        # full disk had no handler on any platform.
+        print(f"cannot read or write that: {exc}", file=sys.stderr)
+        return 2
     except sqlite3.Error as exc:
         print(f"corpus database error: {exc}", file=sys.stderr)
         print(f"  corpus path: {_corpus_path_hint(args)}", file=sys.stderr)

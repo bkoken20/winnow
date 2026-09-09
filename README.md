@@ -183,7 +183,7 @@ git clone https://github.com/<you>/winnow.git
 cd winnow
 pip install -e .                         # installs the `winnow` command
 pip install -U yt-dlp                    # only to pass URLs; Winnow never installs it for you
-pip install -r requirements.txt          # pytest, pyflakes, and tomli below 3.11 -- only to run the tests
+pip install -r requirements.txt          # pytest, pyflakes, PyYAML, and tomli below 3.11 -- only to run the tests
 ```
 
 You also need [Ollama](https://ollama.com) running, with:
@@ -296,7 +296,7 @@ deserve to be told about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. Ninety behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. Ninety-nine behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by
@@ -313,7 +313,7 @@ left to raise with a full traceback rather than being flattened into one of thes
 |---|---|---|
 | `0` | success — including "found nothing", which is an answer | — |
 | `1` | no domain packs found | install with `pip install -e .` from the clone, or set `packs_root` |
-| `2` | bad input: missing path, not a folder, a link Winnow cannot use (a missing or mistyped `https://`), malformed JSON, a `winnow.json` that is not a JSON object, a setting whose value cannot be used (an unknown `embed_backend`, a `text_num_ctx` too small to extract from), permission denied, or `init` refusing to overwrite | fix the path, link or setting named in the message |
+| `2` | bad input: missing path, not a folder, a link Winnow cannot use (a missing or mistyped `https://`), malformed JSON, a `winnow.json` that is not a JSON object, a setting whose value cannot be used (an unknown `embed_backend`, a `text_num_ctx` too small to extract from), permission denied, a path that cannot be read or written (a directory where a file belongs, a full disk), or `init` refusing to overwrite | fix the path, link or setting named in the message |
 | `3` | run refused — the projection exceeded your accepted budget | re-run with the `--accept-minutes` figure the message gives |
 | `4` | Ollama unreachable or erroring | check it is running: `curl -s http://localhost:11434/api/tags` |
 | `5` | corpus database error | the message names the corpus path |
@@ -321,6 +321,22 @@ left to raise with a full traceback rather than being flattened into one of thes
 | `7` | invalid pack — it would produce nonsense, so it is refused at load | the message names the file and the problem |
 | `8` | yt-dlp not installed | `pip install -U yt-dlp`; Winnow never installs it for you |
 | `9` | fetch failed — the video is unavailable/private/region-locked, 403/429 throttling, an out-of-date yt-dlp, or sign-in gating | read yt-dlp's own message in the output; the error lists the causes |
+
+## Releasing
+
+**Publish from a clean checkout, never by copying this folder.** The repository is clean from
+Git's point of view, and the working directory is not: it accumulates a corpus database with
+your claim text and absolute local paths, a `winnow.json` with more of them, fetched captions
+under `winnow-cache/`, and stale `build/` and `*.egg-info` output whose copies of the source
+no longer match the tree. All of it is gitignored, so none of it is committed — and all of it
+would travel in a copied folder.
+
+```bash
+git archive --format=tar.gz -o winnow.tar.gz HEAD   # exactly the tracked files, nothing else
+```
+
+or clone into a fresh directory and work from there. `tests/test_what_would_ship.py` checks
+the archive both ways: that it carries no local artifact, and that it is still the project.
 
 ## Licence
 

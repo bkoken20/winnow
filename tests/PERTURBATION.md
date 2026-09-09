@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**90 behaviours, over sixteen rounds.** Every mutation was detected except those recorded
+**99 behaviours, over seventeen rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -650,3 +650,49 @@ table, so deleting one occurrence left the section still telling the reader the 
 the check was right to stay green. The perturbation, not the check, was the thing that had
 failed. **A mutation has to remove the behaviour, not an instance of it**, which is the same
 lesson as `str.replace` writing the original file back, arriving from the other direction.
+
+## Round seventeen — nothing had ever run this on a machine that is not mine
+
+Sixteen rounds, five hundred tests, and every one of them on one Windows box with one Python.
+`requires-python = ">=3.10"` was a promise nothing could keep, and a test in
+`test_packaging_metadata.py` says so in its own docstring: *"This does NOT prove the code
+runs on 3.10 -- only an interpreter can do that, and there is not one here."*
+
+A workflow file is itself a claim, so the tests below check what can be checked from here:
+that it parses, that its matrix contains the floor `pyproject.toml` promises, that it runs
+the same suite the README tells a contributor to run, and that its actions are pinned rather
+than following a branch someone else can move.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 91 | the ship-detector no longer recognising a corpus database | `test_the_detector_finds_what_it_is_looking_for` | RED |
+| 92 | the ship-detector no longer recognising stale build output | `test_the_detector_finds_what_it_is_looking_for` | RED |
+| 93 | the release procedure replaced by `tar czf . ` | `test_the_release_procedure_is_written_down` | RED |
+| 94 | CI dropping the oldest Python the package claims | `test_it_tests_the_oldest_python_the_package_claims` | RED (2) |
+| 95 | CI not running pyflakes | `test_it_runs_the_linter_that_catches_undefined_names` | RED |
+| 96 | CI not running the suite | `test_it_runs_the_suite_the_readme_documents` | RED |
+| 97 | CI not checking the built metadata | `test_it_builds_the_distribution_it_publishes_metadata_for` | RED |
+| 98 | an action following `@main` instead of a pinned major | `test_every_action_is_pinned_to_a_major_version` | RED |
+| 99 | `OSError` no longer answered with an exit code | `test_an_operating_system_error_is_a_sentence_not_a_traceback` | RED (2) |
+
+### Row 99 is what thinking about Linux found before Linux did
+
+`winnow --config <a directory>` reads a directory. Windows raises `PermissionError`, which
+`_run` catches and turns into a one-line message and exit 2. Linux and macOS raise
+`IsADirectoryError`, which nothing caught -- so the same typo is a tidy answer on the machine
+this was written on and a traceback on the two it was not. A full disk (`ENOSPC`) had no
+handler anywhere.
+
+`FileNotFoundError` and `PermissionError` were handled because they are the two errors
+**this machine** produces for the mistakes I make. The whole class is `OSError`, and the test
+raises the errors directly rather than creating a directory, so it is red on every platform
+rather than only where the bug shows.
+
+### What the ship test is actually for
+
+The working directory holds a 2.1 MB corpus with 383 claims and absolute local paths, a local
+`winnow.json`, fetched captions, stale `build/` output and an `egg-info` carrying an older
+README. All of it gitignored; none of it tracked; the repository is clean. The failure mode
+is not a bad commit -- it is publishing by **copying the folder**, at which point every one of
+them ships. So the check is on `git archive HEAD`, which is what a stranger would actually
+receive, and it runs both ways: nothing local in it, and it is still recognisably the project.

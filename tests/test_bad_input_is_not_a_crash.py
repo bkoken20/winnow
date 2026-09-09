@@ -270,6 +270,35 @@ def test_the_database_handler_survives_a_config_that_is_a_directory(tmp_path, ca
     assert "file is not a database" in said, f"the original failure was lost: {said!r}"
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        IsADirectoryError(21, "Is a directory", "winnow.json"),
+        NotADirectoryError(20, "Not a directory", "notes/x.md"),
+        OSError(28, "No space left on device", "winnow.db"),
+    ],
+    ids=["a directory where a file belongs", "a file where a folder belongs", "a full disk"],
+)
+def test_an_operating_system_error_is_a_sentence_not_a_traceback(capsys, error):
+    """`_run` catches FileNotFoundError and PermissionError. Those are not the only ones.
+
+    Reading a directory raises PermissionError on Windows and IsADirectoryError elsewhere,
+    so `winnow --config <a directory>` was a tidy exit code on the machine this was written
+    on and a traceback on every other. A full disk was never handled anywhere.
+    """
+    def boom(_args):
+        raise error
+
+    code = cli._run(boom, argparse.Namespace(config=None))
+    said = "".join(capsys.readouterr())
+
+    assert "Traceback" not in said, said
+    assert code == 2, f"an ordinary filesystem failure should be bad input, got {code}"
+    assert error.strerror in said or str(error) in said, (
+        f"say what the system said: {said!r}"
+    )
+
+
 def test_the_handler_still_names_the_corpus_when_it_can(tmp_path, capsys):
     """The guard: making the handler safe must not make it useless."""
     config = _config(tmp_path)

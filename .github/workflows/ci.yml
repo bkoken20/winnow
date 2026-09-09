@@ -1,0 +1,68 @@
+# The suite is offline by design: no model server, no network, no ffmpeg. That is what makes
+# this workflow a real check rather than a smoke test -- it runs the same command a
+# contributor runs, on Pythons and an operating system I do not have.
+
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} - python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Never stop the other jobs: a failure on one Python is most informative beside the
+      # versions that passed.
+      fail-fast: false
+      matrix:
+        # 3.10 is the floor `requires-python` promises and the one nothing here can test.
+        # Windows is where this was written, so Linux is the half that has never run it.
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: pyflakes
+        # Undefined names in files no test imports. The suite shells out to this too, but a
+        # missing pyflakes there degrades the check into a SKIP, so it runs here as a step
+        # of its own where absence is a failure.
+        run: python -m pyflakes winnow tests scripts experiments
+
+      - name: Tests
+        run: python -m pytest tests/ -q
+
+  build:
+    name: build and check metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          python -m build
+
+      - name: Check the metadata a listing page would show
+        run: python -m twine check dist/*

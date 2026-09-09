@@ -44,7 +44,7 @@ winnow = "winnow.cli:main"
 # pyproject.toml with a real TOML parser rather than regular expressions: a second,
 # hand-rolled parser can disagree with the first, and then a check passes on one Python and
 # fails on another for reasons that have nothing to do with the thing being checked.
-dev = ["pytest>=7.0", "pyflakes>=3.0", "tomli>=2.0; python_version < '3.11'"]
+dev = ["pytest>=7.0", "pyflakes>=3.0", "tomli>=2.0; python_version < '3.11'", "PyYAML>=6.0"]
 
 [build-system]
 requires = ["setuptools>=77"]  # 77 is where PEP 639 `license = "MIT"` is understood

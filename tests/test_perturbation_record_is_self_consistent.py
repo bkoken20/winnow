@@ -17,11 +17,33 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PERTURBATION = (ROOT / "tests" / "PERTURBATION.md").read_text(encoding="utf-8")
 
-_WORDS = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
-    "thirteen": 13, "fourteen": 14, "fifteen": 15,
-}
+_UNITS = [
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+    "eighteen", "nineteen",
+]
+_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty",
+         "ninety"]
+
+
+def _number_words(high: int = 99) -> dict[str, int]:
+    """Generated, not listed.
+
+    The literal dict this replaces stopped at fifteen, and round sixteen then failed a test
+    about the RECORD for a reason that had nothing to do with the record -- the same fault
+    `test_docs_match_code._number_words` was written to end, one file over.
+    """
+    words = {}
+    for n in range(1, min(high, 99) + 1):
+        if n < 20:
+            words[_UNITS[n]] = n
+        else:
+            tens, unit = divmod(n, 10)
+            words[_TENS[tens] + (f"-{_UNITS[unit]}" if unit else "")] = n
+    return words
+
+
+_WORDS = _number_words()
 
 
 def _rows() -> int:

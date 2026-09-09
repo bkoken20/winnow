@@ -23,6 +23,10 @@ CONFIG_FILENAME = "winnow.json"
 # this replaces was `embed_backend: "cloud"`, which this module described the privacy
 # consequences of at length while `build_embedder` had no such branch at all.
 EMBED_BACKENDS = ("ollama", "hashing")
+# Where you declare your judging happens. A DECLARATION only: the judge is always
+# OllamaClient(host=ollama_host), so this routes nothing -- it selects the warning and is
+# recorded in each verdict's stamp.
+JUDGE_LOCATIONS = ("local", "cloud")
 
 
 class InvalidConfiguration(ValueError):
@@ -134,6 +138,11 @@ class Config:
                     stacklevel=2,
                 )
         config = cls(**{k: v for k, v in data.items() if k in known})
+        if config.judge_location not in JUDGE_LOCATIONS:
+            raise InvalidConfiguration(
+                f"{candidate}: judge_location is {config.judge_location!r}, which is not a "
+                f"value Winnow understands. Use one of: {', '.join(JUDGE_LOCATIONS)}."
+            )
         if config.embed_backend not in EMBED_BACKENDS:
             # Refused HERE, not at first use, because `winnow status` never builds a
             # pipeline: it read this setting, believed it, and printed a privacy statement
@@ -173,7 +182,9 @@ class Config:
     def is_fully_local(self) -> bool:
         return (
             self.host_is_local
-            and self.judge_location != "cloud"
+            # `in`, not `!= "cloud"`. The old form passed every OTHER value -- a typo, a
+            # capital C, an invented word -- as fully local: a privacy check failing OPEN.
+            and self.judge_location == "local"
             # Any backend that is not one of ours, not the single spelling 'cloud'. This
             # said `!= "cloud"`, which described one imagined non-local backend and passed
             # every other unknown value as fully local.
@@ -213,7 +224,13 @@ class Config:
                     "EVERYTHING goes there: the full text of every note and transcript you "
                     "process, and every claim extracted from them"
                 )
-        if self.judge_location == "cloud" and self.judge_model:
+        if self.judge_location not in JUDGE_LOCATIONS:
+            reasons.append(
+                f"judge_location is {self.judge_location!r}, which is not a value Winnow "
+                f"understands ({', '.join(JUDGE_LOCATIONS)}); a setting about where your "
+                "judging happens that cannot be read is not evidence that it happens here"
+            )
+        elif self.judge_location == "cloud" and self.judge_model:
             reasons.append(
                 f"a cloud judge ('{self.judge_model}') is declared, so the text of each "
                 "claim judged, plus the most similar claims from your corpus, is sent to it"
@@ -234,6 +251,15 @@ class Config:
                 "cannot be stated at all"
             )
 
+        # A headline with nothing after it is worse than no headline: it alarms and does
+        # not inform. If `is_fully_local` ever says no for a case with no reason written
+        # for it, say that plainly rather than printing "NOT FULLY LOCAL. ."
+        if not reasons:
+            reasons = [
+                "the settings do not add up to a local configuration and this message "
+                "cannot say which one is responsible -- run `winnow status` and check "
+                "ollama_host, embed_backend and judge_location"
+            ]
         return "NOT FULLY LOCAL. " + "; ".join(reasons) + "."
 
     def resolved_notes_path(self) -> Path | None:

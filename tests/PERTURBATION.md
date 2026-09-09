@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**82 behaviours, over fifteen rounds.** Every mutation was detected except those recorded
+**90 behaviours, over sixteen rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -603,3 +603,50 @@ instruction is not to invent a destination to make the placeholder go away. So
 instructions cannot work for any reader, and the day a real repository URL replaces the
 placeholder the test passes, the strict marker turns that into a failure, and the marker
 comes off. A blocker in the suite rather than in a note.
+
+## Round sixteen — the privacy section named one outbound path of five
+
+The README pointed at `winnow status` as the authority and then summarised it, and the
+summary listed yt-dlp alone. Four more exist: every model call goes to `ollama_host` (local
+only because it defaults to localhost), `scripts/fetch_starter_corpus.py` runs `git clone`,
+and both documented `pip install` lines contact a package index.
+
+`judge_location` was the same fault as `embed_backend: "cloud"` from round twelve. The
+statement described what a cloud judge would transmit; the judge is
+`OllamaClient(host=ollama_host)` whatever the setting says, so it routes nothing. Worse, it
+was compared with `!= "cloud"`, so `"cloutd"`, `"Cloud"` and `""` all read as fully local --
+**a privacy check failing OPEN**, which the same file's `host_is_local` explicitly refuses to
+do three functions above it.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 83 | an unknown `judge_location` accepted at load | `test_an_unknown_judge_location_is_refused` | RED |
+| 84 | the local check back to `!= "cloud"` | `test_a_misspelt_judge_location_is_not_treated_as_local` | RED (2) |
+| 85 | no reason written for an unreadable `judge_location` | `test_the_reason_names_the_setting_and_the_value_that_is_wrong` | RED |
+| 86 | a NOT LOCAL verdict rendering as a bare full stop | `test_a_verdict_with_no_written_reason_still_explains_itself` | RED |
+| 87 | the `git clone` unnamed in the privacy section | `test_the_privacy_section_names_every_outbound_path` | RED |
+| 88 | the package index unnamed | `test_the_privacy_section_covers_the_package_index` | RED |
+| 89 | `ollama_host` unnamed as what decides the destination | `test_the_privacy_section_names_every_outbound_path` | RED (2) |
+| 90 | a file dropped from the outbound list | `test_the_list_of_outbound_paths_is_complete` | RED |
+
+### Two guards, each passing the other's tests
+
+Rows 85 and 86 both SURVIVED first. Making `is_fully_local` fail closed created a case with
+no sentence written for it, so the statement came out as **"NOT FULLY LOCAL. ."** -- a
+headline, a full stop, and nothing to act on. The repair was a specific reason for that case
+AND a catch-all for any future one, and then neither could be tested: remove the specific
+branch and the catch-all still produces a long sentence that happens to name three settings;
+remove the catch-all and no case reaches it.
+
+**Two guards where each hides the other's absence is one guard, tested twice.** Now the
+reason must name the offending setting *and its value*, which the catch-all cannot do, and
+the catch-all is tested on its own terms by forcing the verdict false with no branch to
+explain it.
+
+### A mutation that changes the file without removing the behaviour
+
+Rows 88 and 89 also survived first. Both phrases appear in more than one row of the new
+table, so deleting one occurrence left the section still telling the reader the true thing --
+the check was right to stay green. The perturbation, not the check, was the thing that had
+failed. **A mutation has to remove the behaviour, not an instance of it**, which is the same
+lesson as `str.replace` writing the original file back, arriving from the other direction.

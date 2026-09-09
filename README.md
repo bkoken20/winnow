@@ -269,14 +269,26 @@ That command is the authority; this section is a summary of it.
 against local Ollama, and your notes, transcripts and extracted claims are not transmitted
 anywhere.
 
-**One thing does reach the network:** passing a URL to `winnow ingest` runs yt-dlp, which
-contacts that site. It prints the exact command before it runs, and sends nothing of yours
-beyond the link you gave it. Pass a file or a folder instead and nothing is fetched at all.
+Five things in this repository can reach the network. All five, in full:
 
-**A cloud judge is opt-in, and announced.** Enable one and Winnow says plainly, before you
-use it, that the text of each claim judged plus the most similar claims from your corpus
-will be transmitted — because attaching a personal knowledge base to a remote model is
-precisely the thing you deserve to be warned about beforehand.
+| what | when | what it sends |
+|---|---|---|
+| **yt-dlp** | `winnow ingest <url>` | contacts the site the link points at. Winnow prints the exact command before running it and sends nothing of yours beyond the link you gave. Pass a file or a folder instead and nothing is fetched at all. |
+| **Ollama at `ollama_host`** | every extraction, embedding and judgement | the full text being processed. It defaults to `http://localhost:11434`, so nothing leaves the machine — **`ollama_host` is the single setting that decides this**, and pointing it elsewhere sends everything there. `winnow status` says so plainly when you do. |
+| **`scripts/fetch_starter_corpus.py`** | only when you run it | `git clone --depth 1` against the public repositories listed in the pack's starter-source file. It downloads; it uploads nothing but the clone request. |
+| **`pip install -U yt-dlp`** | the documented install | contacts a package index, like any pip install. Winnow never runs it for you. |
+| **`pip install -r requirements.txt`** | only to run the tests | the same package index. The runtime itself has no dependencies. |
+
+**`judge_location` routes nothing.** It is a declaration *you* make about where your Ollama
+host is, and it does two things: it selects the warning `winnow status` prints, and it is
+recorded in every verdict's stamp so you can tell later which verdicts were produced that
+way. Setting it to `cloud` does not send anything anywhere — only `ollama_host` does that.
+Winnow has no cloud API client of any kind.
+
+**But the warning is worth reading.** If your Ollama host is remote and you enable a judge,
+the text of each claim judged plus the most similar claims from your corpus go to that host —
+because attaching a personal knowledge base to a remote model is precisely the thing you
+deserve to be told about beforehand.
 
 ## Tests
 
@@ -284,7 +296,7 @@ precisely the thing you deserve to be warned about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. Eighty-two behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. Ninety behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by

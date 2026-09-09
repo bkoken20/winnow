@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**128 behaviours, over twenty-one rounds.** Every mutation was detected except those recorded
+**132 behaviours, over twenty-two rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -955,3 +955,53 @@ to be wrong will always contain quoted wrong claims**, so a loose search over it
 guaranteed to find one eventually and cannot tell it from the current claim. Anchored on the
 bold summary line now — which is the anchoring its sibling `\*\*(\d+) behaviours` already
 had, and why that one never hit this.
+
+## Round twenty-two — the diagnostic wrote to whatever it was pointed at
+
+`winnow status` was fixed once already: it no longer creates a corpus that is not there. But
+when the file exists it still built a `Store`, and the constructor runs `executescript(SCHEMA)`
+and commits. Measured — size, sha256 and table list, before and after one `winnow status`:
+
+```
+zero-byte file        0 B, no tables    ->  53,248 B, 4 tables
+older schema     12,288 B, ['claims']   ->  36,864 B, 4 tables, THEN exit 5
+a budget          8,192 B, ['budget']   ->  57,344 B, ['budget','claims','meta',
+                                                       'sources','verdicts']
+```
+
+The third case is the one that matters: mistype `corpus_path` onto a SQLite file belonging to
+something else, and the diagnostic adds four tables to it and exits 0 without a word. The
+second modified the file on its way to reporting the corpus unreadable.
+
+"Remember to open it read-only" is not a mechanism. SQLite has one: `mode=ro` makes the
+database refuse the write, so a query added later that turns out to write fails loudly
+instead of quietly changing someone's file.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 129 | `status` back to the writing constructor | `test_status_does_not_touch_someone_elses_database` | RED (3) |
+| 130 | `mode=rw` instead of `mode=ro` | `test_a_read_only_store_refuses_writes` | RED |
+| 131 | the URI built by concatenation | `test_a_corpus_path_is_a_filename_not_a_uri` | RED |
+| 132 | the read-only connection without `row_factory` | `test_status_still_reports_a_real_corpus` | RED (8) |
+
+### Row 131 is a bug the walk found in the fix, twenty minutes old
+
+`open_readonly` used `cls.__new__(cls)`, so the walk went looking for the classic failure —
+an attribute `__init__` sets that the new door forgets. `vars()` matched on both; that was not
+it. What the walk did find was the URI:
+
+```
+with#hash    OperationalError: no such table: claims
+```
+
+A corpus inside a directory called `with#hash`, opened by name, is **not the corpus that is
+opened.** `f"file:{path}?mode=ro"` builds a URI by concatenation, and a filename is not URI
+text: `#` starts a fragment, so the name is truncated and SQLite is handed a different file.
+Winnow then reports a corpus sitting right there as not being one.
+
+The `?` case is worse and is legal on Linux and macOS: it starts the query string, so a
+directory name could supply the parameters and drop the `mode=ro` that is the entire purpose
+of the constructor. `Path.resolve().as_uri()` percent-encodes both (`%23`, `%3F`).
+
+Green at 675 tests when the walk started. No test had an awkward character in a path, and
+none would have: the fixtures all use `tmp_path`, which is tidy by construction.

@@ -100,6 +100,42 @@ class Store:
         )
         self.conn.commit()
 
+    @classmethod
+    def open_readonly(cls, path: str | Path) -> "Store":
+        """A Store that CANNOT write, for commands that only look.
+
+        The constructor above runs `executescript(SCHEMA)` and commits, which is right when
+        you are about to store something and wrong when you are only reporting. `winnow
+        status` used the constructor, so pointing `corpus_path` at any existing SQLite file
+        made the diagnostic write four tables into it. Measured on a household budget
+        database: 8,192 bytes and one table in, 57,344 bytes and five out, exit 0, no
+        mention of it. An older Winnow schema was migrated on the way to reporting itself
+        unreadable.
+
+        `mode=ro` is the point. It is not a promise that the methods used here happen to be
+        read-only -- SQLite refuses the write itself, with "attempt to write a readonly
+        database", so a query added later that turns out to write fails loudly instead of
+        quietly changing someone's file. It also refuses to CREATE the file, which is the
+        other half of what a diagnostic must not do.
+
+        Deliberately a second constructor rather than a flag on the first: the choice is
+        made once, at the door, and cannot be forgotten halfway through.
+
+        The URI is built with `as_uri()`, never by concatenation. A filename is not URI text:
+        a corpus inside a directory called `with#hash` was silently truncated at the `#` --
+        SQLite opened something else and reported "no such table: claims" about a corpus
+        sitting right there -- and a `?`, which is legal on Linux and macOS, would start the
+        query string and could drop the `mode=ro` that is the whole point of this method.
+        `as_uri()` percent-encodes both and requires the absolute path the URI form needs.
+        """
+        store = cls.__new__(cls)
+        store.path = Path(path)
+        store.conn = sqlite3.connect(
+            f"{store.path.resolve().as_uri()}?mode=ro", uri=True
+        )
+        store.conn.row_factory = sqlite3.Row
+        return store
+
     def close(self) -> None:
         self.conn.close()
 

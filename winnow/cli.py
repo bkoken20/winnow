@@ -169,7 +169,9 @@ def cmd_status(args) -> int:
     try:
         from .store import Store
 
-        store = Store(config.corpus_path)
+        # Read-only, enforced by SQLite. This is a diagnostic: it may not create the
+        # file, add tables to it, or migrate it. See Store.open_readonly.
+        store = Store.open_readonly(config.corpus_path)
         total = store.count_claims(config.pack)
         pack = find_pack(config.pack, Path(config.packs_root) if config.packs_root else None)
         print(f"corpus holds  : {total} claims for pack '{config.pack}'")

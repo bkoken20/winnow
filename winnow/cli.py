@@ -32,6 +32,7 @@ from .acquire import (
 from .embed import build_embedder
 from .media import find_media_file
 from .pipeline import (
+    NOTE_EXTENSIONS,
     CorpusEmbeddingMismatch,
     announce_test_backend,
     foreign_embed_models,
@@ -321,14 +322,35 @@ def cmd_index(args) -> int:
     finally:
         pipeline.close()
 
+    readable = ", ".join(sorted(NOTE_EXTENSIONS))
     if result["files"] == 0:
+        # "nothing new to index" is the truth for exactly one of the three ways this can
+        # be zero. For the other two it was a silent empty result: exit 0 over a folder
+        # whose every file went unread, with nothing saying which.
+        if result["unreadable"]:
+            print(
+                f"nothing in {folder} could be read.\n"
+                f"  found: {', '.join(result['unreadable'])}\n"
+                f"  Winnow indexes plain text: {readable}. Convert the rest, or point "
+                "`index` at a folder that holds them.",
+                file=sys.stderr,
+            )
+            return 2
+        if not result["found_any"]:
+            print(f"{folder} is empty -- there is nothing to index.", file=sys.stderr)
+            return 2
         print("nothing new to index")
         return 0
+
     if result["projection"]:
         print(result["projection"].describe())
     # `claims` is what was STORED: near-duplicates of something already in the
     # corpus are extracted, judged, and then not kept.
     print(f"indexed {result['files']} files -> {result['claims']} claims stored")
+    if result["unreadable"]:
+        # Said even on a successful run: a folder of 400 notes with three stragglers in
+        # another format is exactly where a quiet skip costs the most.
+        print(f"skipped, not readable: {', '.join(result['unreadable'])}")
     return 0
 
 

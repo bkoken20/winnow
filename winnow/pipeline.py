@@ -305,14 +305,52 @@ class Pipeline:
         if not folder.is_dir():
             raise NotADirectoryError(f"{folder} is not a directory")
 
-        files = sorted(
-            p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in NOTE_EXTENSIONS
+        # Nothing under a hidden directory, and no hidden files. `rglob` walks `.git`,
+        # `.venv` and `node_modules` like any other folder, and a notes folder under
+        # version control is the ordinary case, not an exotic one.
+        #
+        # Measured on a folder holding ONE note, git-initialised: 27 files seen. And with a
+        # virtualenv in it, the list this would have INDEXED was:
+        #
+        #     notes/.venv/lib/site-packages/somepkg/README.md
+        #     notes/a.md
+        #
+        # A package README is not something the user has read. Indexing it costs a model
+        # call and then puts its claims into the corpus as PRIOR KNOWLEDGE, so a genuinely
+        # new claim from a video can be judged "already known" against documentation the
+        # user has never seen. That is this tool's premise inverted, quietly.
+        everything = [
+            p
+            for p in folder.rglob("*")
+            if p.is_file()
+            and not any(part.startswith(".") for part in p.relative_to(folder).parts)
+        ]
+        files = sorted(p for p in everything if p.suffix.lower() in NOTE_EXTENSIONS)
+        # What is in the folder that this cannot read, as a sorted list of extensions.
+        # Reported ALWAYS, not only when nothing was readable: a folder of 400 notes with
+        # three stragglers in another format is the case where a quiet skip costs most.
+        unreadable = sorted(
+            {(p.suffix.lower() or "(no extension)") for p in everything}
+            - set(NOTE_EXTENSIONS)
         )
         if skip_known:
             known = self.store.source_paths(self.pack.name)
             files = [p for p in files if canonical_path(p) not in known]
         if not files:
-            return {"files": 0, "claims": 0, "projection": None}
+            # THREE situations, and they used to collapse into one zero:
+            #   nothing readable here      -- `unreadable` is non-empty
+            #   the folder is empty        -- nothing at all in it
+            #   it is all already indexed  -- readable files existed and were filtered
+            # Only the third is success. Reporting the first as "nothing new to index" and
+            # exit 0 is a silent empty result over a folder full of someone's notes, which
+            # is the failure this tool's own documentation says it does not produce.
+            return {
+                "files": 0,
+                "claims": 0,
+                "projection": None,
+                "unreadable": unreadable,
+                "found_any": bool(everything),
+            }
 
         # Measure one real unit, then project by TEXT VOLUME rather than by file count.
         # File sizes in a real notes folder vary by more than an order of magnitude, so
@@ -379,7 +417,13 @@ class Pipeline:
         files = [p for p in files if p != sample]
         for path in files:
             total += self.index_note(path)
-        return {"files": len(files) + 1, "claims": total, "projection": projection}
+        return {
+            "files": len(files) + 1,
+            "claims": total,
+            "projection": projection,
+            "unreadable": unreadable,
+            "found_any": True,
+        }
 
     # -- material intake -------------------------------------------------------
 

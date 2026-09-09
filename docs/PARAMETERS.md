@@ -124,6 +124,12 @@ name with exit 2, before anything runs. `true` is not a number here even though 
 counts it as one, and `duplicate_threshold: 5.0` used to be accepted in silence — no
 similarity reaches 5, so de-duplication was off and nothing said so.
 
+**`winnow index` reads four extensions** — `.txt`, `.md`, `.markdown`, `.mdx` — and nothing
+else. A folder holding only formats it cannot read is an error naming what it found, not a
+quiet success, and anything skipped is listed even on a run that worked. Hidden directories
+are not walked at all: a `.git` or `.venv` inside a notes folder is tooling, and a package
+README indexed as one of your notes would enter the corpus as something you had read.
+
 ## Command-line flags
 
 | flag | applies to | what it does |

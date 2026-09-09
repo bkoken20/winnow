@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**187 behaviours, over thirty-two rounds.** Every mutation was detected except those recorded
+**192 behaviours, over thirty-three rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1566,3 +1566,66 @@ The rejudge budget had this gap. The fetch timeout had this gap. After the secon
 record says in as many words: *"An argument that is parsed, accepted and dropped needs its own
 test, every time."* Then I did not write one. The test now configures 97 seconds, which
 nothing else could produce, and watches it reach the subprocess.
+
+## Round thirty-three — a sentence written for an article found two defects
+
+The operator was drafting a paragraph explaining Winnow and asked whether it was accurate:
+
+> "Winnow does not transcribe: a video with no captions is a stop, not a silent empty
+> result. It does not read PDFs. What it does read is anything you can put in a text file."
+
+The first two sentences are true. The third is not — Winnow reads four extensions — and
+checking it turned up something worse than a wording problem.
+
+```
+winnow index ./notes        (a folder of .rst files)
+nothing new to index        exit 0
+```
+
+**Exit 0 over a folder whose every file went unread**, with nothing saying which. That is a
+silent empty result: precisely the failure the first sentence of his paragraph says the tool
+does not produce. `ingest` honours it for a single file. `index` did not, for a folder.
+
+Three situations collapsed into one `files == 0`: nothing readable here, the folder is empty,
+and everything is already indexed. Only the third is success.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 188 | a folder read nothing from reported as success | `test_a_folder_of_unreadable_notes_is_not_a_success` | RED (6) |
+| 189 | an empty folder not named as empty | `test_an_empty_folder_says_it_is_empty` | RED (2) |
+| 190 | skipped files unmentioned on a successful run | `test_a_mixed_folder_indexes_what_it_can_and_mentions_the_rest` | RED |
+| 191 | hidden directories walked again | `test_a_dot_directory_is_not_someone_s_notes` | RED (2) |
+| 192 | the census of unreadable extensions removed | `test_it_names_what_it_found` | RED (8) |
+
+### Row 191 is the one that matters, and the walk found it
+
+Reporting what was skipped meant listing what was in the folder — and walking a real
+git-tracked notes folder showed the census was about to be useless:
+
+```
+files seen  : 27          (the user has ONE note)
+unreadable  : ['(no extension)', '.sample']      <- .git/hooks
+```
+
+`rglob("*")` walks `.git`, `.venv` and `node_modules` like any other directory. Adding a
+virtualenv and asking what would be INDEXED:
+
+```
+notes/.venv/lib/site-packages/somepkg/README.md
+notes/a.md
+```
+
+**A package README, indexed as one of your notes.** It costs a model call, and then its
+claims enter the corpus as PRIOR KNOWLEDGE — so a genuinely new claim from a video can be
+judged "already known" against documentation the user has never read. The tool's premise,
+inverted, silently, on any notes folder that is also a repository.
+
+That defect predates this round and nothing had ever looked at it. It surfaced only because
+the fix for the silent zero required counting what was in the folder, and the walk then asked
+what those 27 files actually were.
+
+### What the census is, and is not
+
+A sorted list of EXTENSIONS, not filenames — a folder with 400 stragglers prints one line.
+Reported on successful runs too, not only failures: a folder of 400 notes with three files in
+another format is exactly where a quiet skip costs the most.

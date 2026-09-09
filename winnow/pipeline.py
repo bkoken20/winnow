@@ -268,8 +268,23 @@ class Pipeline:
         # "time one file, multiply by the number of files" is only a valid estimator when
         # the sampled file happens to be typical. Sample a median-sized file and scale on
         # bytes instead.
-        total_bytes = sum(p.stat().st_size for p in files)
-        by_size = sorted(files, key=lambda p: p.stat().st_size)
+        # One stat per file, read once. The total, the emptiness filter and the sort key
+        # used to call it separately, so on a folder something else is writing to they
+        # could each see a different size of the same file.
+        sizes = {p: p.stat().st_size for p in files}
+        total_bytes = sum(sizes.values())
+        # The median of the files WITH SOMETHING IN THEM. An empty file is not a small
+        # unit of work, it is no unit of work: timing one measures the loop and not the
+        # extraction, and it reports `sample_bytes == 0`, which sends the projection down
+        # the file-count path -- that same near-zero unit, multiplied. A folder where more
+        # than half the files are empty therefore projected a real run at roughly zero and
+        # the gate was satisfied by a number describing none of the work. Measured on a
+        # 12-file folder holding 41,600 bytes: 0.00021 seconds a unit, 2.5 ms projected.
+        #
+        # Empty files are ordinary. `touch` leaves them, an interrupted export leaves
+        # them, and a notes folder grown over years is full of them.
+        with_content = [p for p in files if sizes[p] > 0]
+        by_size = sorted(with_content or files, key=sizes.__getitem__)
         sample = by_size[len(by_size) // 2]
 
         corpus_before = self.store.count_claims(self.pack.name)
@@ -298,7 +313,7 @@ class Pipeline:
             unit_seconds=extraction_unit_seconds,
             measured_unit_seconds=unit_seconds,
             units=len(files),
-            sample_bytes=sample.stat().st_size,
+            sample_bytes=sizes[sample],
             total_bytes=total_bytes,
             scan_seconds_per_claim=scan_cost,
             corpus_claims_at_start=corpus_before,

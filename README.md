@@ -219,6 +219,10 @@ will tell you how much. Long runs are measured before they start: Winnow indexes
 times it, projects the whole run including de-duplication, shows you the number, and will
 not proceed until you accept a budget that covers it.
 
+The file it times is the median-sized one **that has something in it**. Empty files are
+skipped for that purpose: timing one measures nothing, and a folder where more than half the
+files are empty used to project a real run at roughly zero.
+
 **Then judge something:**
 
 ```bash
@@ -296,7 +300,7 @@ deserve to be told about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. 110 behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. 115 behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by

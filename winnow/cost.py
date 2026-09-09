@@ -53,6 +53,26 @@ class Projection:
     corpus_claims_at_start: int = 0
     expected_new_claims: int = 0
 
+    def __post_init__(self) -> None:
+        """Refuse a projection that cannot describe the run it is projecting.
+
+        `sample_bytes == 0` with `total_bytes > 0` says: there is volume to process, and
+        throughput was never measured. `extraction_seconds` then reverts to unit x count
+        without saying so, and the unit came from a file with no text in it. That is not a
+        conservative fallback, it is a silent one, and it produced a projection of 2.5
+        milliseconds for a run with 41,600 bytes to extract.
+
+        Refused at construction rather than checked by the caller: the combination is not a
+        state this object can be in.
+        """
+        if self.total_bytes > 0 and self.sample_bytes <= 0:
+            raise ValueError(
+                f"a projection over {self.total_bytes} bytes needs a sample with bytes in "
+                "it; sample_bytes is "
+                f"{self.sample_bytes}, so throughput was never measured and the estimate "
+                "would silently fall back to unit x file-count"
+            )
+
     @property
     def scales_by_volume(self) -> bool:
         return self.sample_bytes > 0 and self.total_bytes > 0

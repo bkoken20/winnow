@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**110 behaviours, over eighteen rounds.** Every mutation was detected except those recorded
+**115 behaviours, over nineteen rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -770,3 +770,62 @@ out twice, and that when it does, the test fails on its "no count found" branch 
 spell.** Generating the words moved the ceiling; it did not remove it. A numeral now counts
 as a stated count, which has no ceiling and leaves the guarantee -- that the README's number
 equals the table's row count -- exactly as it was.
+
+## Round nineteen — the gate measured an empty file and let the run through
+
+Sampling the MEDIAN file is the right instinct: real notes folders spread over an order of
+magnitude, and timing an arbitrary file projects the whole run badly. But when more than half
+the files are empty, the median IS empty, and two things go wrong at once -- timing it
+measures almost nothing, and `sample_bytes == 0` sends the projection down the file-count
+path, which multiplies that same near-zero unit.
+
+**Measured on the reported shape** -- twelve files, seven empty, 41,600 bytes of real text:
+
+```
+before: unit=0.00021 s x 12 units                      ->    0.0025 s
+after : 8000 B in 0.391 s = 20,480 B/s over 40,000 B   ->    1.9531 s
+ratio :                                                       775x
+```
+
+The gate is satisfied by a number describing none of the work, and the README's promise --
+"indexes one file, times it, projects the whole run, and will not proceed until you accept a
+budget that covers it" -- is broken by the most ordinary folder there is. `touch` leaves
+empty files, an interrupted export leaves them, and a notes folder grown over years is full
+of them.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 111 | empty files back in the sample | `test_the_sampled_file_has_something_in_it` | RED (4) |
+| 112 | the sample taken as the largest, not the median | `test_a_normal_folder_still_samples_the_median` | RED |
+| 113 | the all-empty folder left with no sample | `test_an_entirely_empty_folder_is_honest_about_it` | RED (4) |
+| 114 | a projection that cannot describe its run allowed | `test_a_projection_cannot_claim_bytes_it_did_not_sample` | RED |
+| 115 | the volume path abandoned when bytes are known | `test_the_projection_still_scales_by_volume` | RED (2) |
+
+### Row 112 survived first, and the fixture was why
+
+`sorted(..., reverse=True)` -- sample the LARGEST file rather than the median -- left the
+suite green. The fixture had five files, and **the middle index of an odd-length list is the
+middle whichever way it is sorted**. The assertion could not distinguish the two orders it
+was written to distinguish. Six files, one of them a 20 KB monster, and it goes red.
+
+A symmetric fixture is a fixture that cannot fail, in the same family as the thirty
+near-identical sentences in round eleven.
+
+### What the walk added
+
+The suite was green at 649 tests before the walk. Running the changed lines over seven real
+folder shapes showed the sampling behaves, and showed something the tests never look at:
+`total_bytes`, the emptiness filter and the sort key each called `p.stat()` separately, and
+`sample_bytes` read it a fourth time. On a folder something else is writing to, those four
+reads can see four different sizes of the same file -- the total disagreeing with the sort
+that chose the sample. One snapshot now, read once.
+
+No test asserts that, and no reasonable one could: it is a consistency property of a
+directory being mutated underneath us. It came from reading the statements.
+
+### The second half of the fix is a state that cannot exist
+
+`sample_bytes == 0` with `total_bytes > 0` says there is volume to process and throughput was
+never measured -- and `extraction_seconds` then reverts to unit x count without saying so.
+`Projection` refuses that combination at construction, so the fallback cannot be reached
+silently by any future caller, rather than the pipeline being trusted to remember.

@@ -84,15 +84,21 @@ _READABLE_SUFFIXES = frozenset(
      ".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4a", ".mp3", ".wav", ".flac", ".json"}
 )
 
-# A host-ish token followed by a path: "youtu.be/x", "www.youtube.com/watch?v=x". Deliberately
-# narrow -- it must not fire on an ordinary relative path like "notes/talk.txt", so a dot in
-# the first segment is required and the part after it has to look like a TLD.
+# A host-ish token followed by A PATH: "youtu.be/x", "www.youtube.com/watch?v=x". The
+# trailing `[/?]` is now REQUIRED, and that is the whole substance of this pattern.
 #
-# Narrow was not narrow enough: a BARE dotted name has no separator either, so "README.md"
-# matched and an existing file was answered with "try https://README.md". The guard test
-# written with the original fix used "notes/talk.txt", which has a separator -- it tested the
-# shape I had in mind rather than the class.
-_HOSTLIKE = re.compile(r"^(?:www\.)?[A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}(?:[/?].*)?$")
+# It was optional, so a bare dotted name matched and any filename Winnow does not read was
+# answered with link advice: `data.backup`, `report.docx`, `archive.zip`, `notes.tar.gz`.
+# That was patched once by excluding the extensions Winnow READS, which is a list of
+# instances -- the class is "a filename", and no extension list describes it. `.zip` is a
+# real top-level domain, so no rule can separate `archive.zip` the file from `archive.zip`
+# the host.
+#
+# It is genuinely ambiguous, so the answer is too: a bare dotted name falls through to the
+# path branch, which reports it as missing AND offers the link reading. What is not
+# ambiguous is a host with a path after it -- which is exactly what a link pasted without
+# its scheme looks like, because YouTube always shows one.
+_HOSTLIKE = re.compile(r"^(?:www\.)?[A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}[/?].*$")
 
 
 def why_not_a_url(value: str) -> str | None:
@@ -119,18 +125,26 @@ def why_not_a_url(value: str) -> str | None:
             "fetch. Use http:// or https:// -- most likely https://"
         )
 
-    # A name ending in something Winnow reads is a filename, not a host. Without this,
-    # `talk.txt` and `2024.report.md` match the host pattern -- "a dotted token" describes a
-    # great many filenames -- and a mistyped one was answered with "try https://talk.txt".
-    if Path(value).suffix.lower() in _READABLE_SUFFIXES:
-        return None
-
     if _HOSTLIKE.match(value):
         return (
             f"{value!r} looks like a link with no scheme. Try https://{value}\n"
             "  (YouTube shows links without the https:// part; Winnow needs it.)"
         )
     return None
+
+
+def is_obviously_a_filename(value: str) -> bool:
+    """Does this name end in something Winnow reads?
+
+    Used to decide whether the LINK reading is worth mentioning at all, not whether the
+    string is a host -- the host pattern settles that by requiring a path. `talk.txt` and
+    `video.mp4` are files whatever they resemble, and an earlier round decided exactly that;
+    offering "if you meant a link" for them is noise that contradicts a settled answer.
+
+    `data.backup` and `archive.zip` are not on the list and never will be, because the list
+    is of things Winnow READS. Those stay ambiguous, and get both readings.
+    """
+    return Path(value).suffix.lower() in _READABLE_SUFFIXES
 
 
 def yt_dlp_command() -> list[str]:

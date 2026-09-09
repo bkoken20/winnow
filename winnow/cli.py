@@ -25,6 +25,7 @@ from .acquire import (
     YtDlpMissing,
     cache_dir_for,
     fetch,
+    is_obviously_a_filename,
     looks_like_url,
     why_not_a_url,
 )
@@ -358,7 +359,26 @@ def cmd_ingest(args) -> int:
             if problem:
                 print(problem, file=sys.stderr)
                 return 2
-            print(f"no such file or folder: {target}", file=sys.stderr)
+            # What they TYPED, not what `Path()` made of it. On Windows `notes/talk.txt`
+            # came back as `notes\\talk.txt`, so the string quoted at the user was not the
+            # one they could see on their own command line -- which `why_not_a_url`'s
+            # docstring names as part of why it exists, one line above this.
+            print(f"no such file or folder: {args.path}", file=sys.stderr)
+            if (
+                "." in Path(args.path).name
+                and not Path(args.path).parent.parts
+                and not is_obviously_a_filename(args.path)
+            ):
+                # A bare dotted name with no directory part. It is far more often a
+                # filename -- which is why that reading comes first -- but it is also what
+                # a link pasted without its scheme looks like when it has no path after it,
+                # and nothing can tell the two apart: `.zip` is a real top-level domain.
+                # Winnow used to pick, and picked wrong for every ordinary file it does not
+                # read. Now it says both.
+                print(
+                    f"  If you meant a link, it needs its scheme: https://{args.path}",
+                    file=sys.stderr,
+                )
             return 2
 
     pipeline = Pipeline.build(config)

@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**159 behaviours, over twenty-seven rounds.** Every mutation was detected except those recorded
+**163 behaviours, over twenty-eight rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1282,3 +1282,64 @@ its own test, every time.**
 behaviour is "the two agree", and a literal 600 agrees; what the mutation removes is the
 MECHANISM that keeps them agreeing. No value comparison can see that, so the check reads the
 source — the same instrument the documented-defaults tests use.
+
+## Round twenty-eight — the third fix to one discriminator, and the first that is not a list
+
+`winnow ingest data.backup` answered *"looks like a link with no scheme. Try
+https://data.backup"*. So did `report.docx`, `archive.zip` and `notes.tar.gz`.
+
+This is the **third** time this one predicate has been fixed:
+
+1. The original guard was written against `notes/talk.txt`, which has a separator — so a
+   bare `README.md` still matched and an existing file was told to try `https://README.md`.
+   That round's own note says it "tested the shape I had in mind rather than the class".
+2. The fix was a list of the extensions Winnow READS. `.backup`, `.docx` and `.zip` are not
+   on it and never will be, because the list is of things the tool can open.
+3. **The class is "a filename", and no list of extensions describes it.**
+
+`.zip` is a real top-level domain. No rule separates `archive.zip` the file from
+`archive.zip` the host, and every attempt to write one has been an attempt to resolve
+something genuinely undecidable. So the answer is undecided too: a bare dotted name is
+reported as a missing FILE — the likelier reading — with the link reading offered on the next
+line. What is not ambiguous is a host followed by a PATH, which is what a pasted YouTube link
+always looks like, and that keeps the confident advice.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 160 | the host pattern's path made optional again | `test_a_bare_dotted_name_is_not_declared_a_link` | RED (13) |
+| 161 | a readable filename no longer spared the hint | `test_a_mistyped_filename_reports_a_missing_file` | RED (4) |
+| 162 | the message quoting the normalised path | `test_the_message_quotes_what_was_typed` | RED |
+| 163 | the other reading not offered | `test_the_command_reports_a_missing_file_and_offers_the_other_reading` | RED (4) |
+
+### A census, because two example-shaped fixes had already failed here
+
+The walk did not test a few strings. It ran every KIND of input through the predicate and
+printed what a user would see — the thing that was wrong both previous times:
+
+```
+a link pasted without its scheme    youtu.be/IGBp6QdsR2s     LINK ADVICE
+a bare host, no path                youtube.com              -
+a filename Winnow reads             talk.txt                 -          file
+a filename Winnow does not read     data.backup              -
+a relative path                     notes/talk.txt           -          file
+a broken scheme                     ftp://example.com/x      LINK ADVICE
+```
+
+### Row 162 is a defect the walk found in a message it was only passing through
+
+```
+$ winnow ingest notes/talk.txt
+no such file or folder: notes\talk.txt
+```
+
+`Path()` normalises the separators, so the string quoted back is not the one on the user's
+command line. **`why_not_a_url`'s own docstring names this as part of why that function
+exists** — *"with the separators flipped by `Path()`, so the string quoted back was not even
+the one the user typed"* — and the failure branch one line below it was still doing it. The
+fix for a problem, sitting directly above an unfixed instance of the same problem.
+
+### The suffix list kept its place, in a different role
+
+It no longer answers "is this a host?" — the host pattern settles that by requiring a path.
+It answers "is this so obviously a file that mentioning the link reading would be noise?"
+`talk.txt` gets no hint, which is what an earlier round decided and its test still asserts.

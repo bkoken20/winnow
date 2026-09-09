@@ -308,7 +308,7 @@ deserve to be told about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. 121 behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. 128 behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by
@@ -349,6 +349,19 @@ git archive --format=tar.gz -o winnow.tar.gz HEAD   # exactly the tracked files,
 
 or clone into a fresh directory and work from there. `tests/test_what_would_ship.py` checks
 the archive both ways: that it carries no local artifact, and that it is still the project.
+
+**PyPI is out of scope.** There is no publish workflow and no credential, and there will not
+be one: the wheel excludes `packs/`, so `pip install winnow` produces a tool that exits 1
+with `no packs found.` — verified by building the wheel, installing it into a clean virtual
+environment and running it. That is deliberate rather than an oversight — Winnow needs a
+model server, models and optionally ffmpeg, and a package install cannot deliver any of them,
+so it would be an installation that looks successful and does nothing. **The supported
+install is `git clone` then `pip install -e .`**, which is what the [Install](#install)
+section says and what CI exercises on every push.
+
+The build and `twine check` steps in CI are not left over from a package plan. They read the
+same `pyproject.toml` that `pip install -e .` reads, so they catch metadata that would break
+the documented install before a user meets it.
 
 ## Licence
 

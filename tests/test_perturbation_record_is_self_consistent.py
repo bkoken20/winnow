@@ -1,4 +1,4 @@
-"""The perturbation record must agree with its own tables.
+"""The perturbation record must agree with its own tables, and with the CURRENT claim.
 
 Its header said "26 behaviours, over five rounds" while the tables below held 48 numbered
 rows across eleven rounds. The README said forty-eight and was right.
@@ -69,7 +69,14 @@ def test_the_stated_behaviour_count_matches_the_tables():
 
 
 def test_the_stated_round_count_matches_the_headings():
-    stated = re.search(r"behaviours, over ([a-z]+) rounds", PERTURBATION)
+    # Anchored on the BOLD summary line, and allowing a hyphen.
+    #
+    # It was `r"behaviours, over ([a-z]+) rounds"`, unanchored. `[a-z]+` cannot match
+    # "twenty-one", so the search slid down the document and matched the parenthetical that
+    # quotes the old wrong line -- "26 behaviours, over five rounds" -- then reported the
+    # summary as saying five. This document exists to record claims that were wrong, so it
+    # will always contain quoted wrong claims; a loose search over it will keep finding them.
+    stated = re.search(r"\*\*\d+ behaviours, over ([a-z-]+) rounds\.\*\*", PERTURBATION)
     assert stated, "the summary should state how many rounds there were"
     word = stated.group(1)
     assert word in _WORDS, f"unrecognised number word {word!r}"

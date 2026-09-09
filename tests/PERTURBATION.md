@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**121 behaviours, over twenty rounds.** Every mutation was detected except those recorded
+**128 behaviours, over twenty-one rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -892,3 +892,66 @@ explaining the field then stood in for the list that is supposed to name it.
 Its own docstring says what it is for: *"it named five of seven ... which is how a guarantee
 quietly stops covering the field nobody listed."* Cut to the first sentence now, which is the
 enumeration and nothing else.
+
+## Round twenty-one — is a package install a thing this project does?
+
+`[tool.setuptools.packages.find] include = ["winnow*"]` leaves `packs/` out of the wheel, so
+`pip install winnow` installs a tool with no domain packs. The README said "distributed by
+clone, not as a package" in one place and CI built a wheel and ran `twine check` on it in
+another, with nothing anywhere stating whether a package release was intended. A reader could
+reasonably have concluded the missing packs were an oversight.
+
+Operator decision, 2026-09-09: **PyPI is out of scope.** Recorded in the README rather than
+in a conversation, and tied to the packaging by a test that fails in either direction — put
+the packs into the wheel one day and it asks for the statement to be rewritten.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 122 | the scope decision not stated | `test_the_packaging_and_the_statement_agree` | RED |
+| 123 | the ruling given with no reason | `test_the_reason_is_given_not_just_the_ruling` | RED |
+| 124 | the wheel including the packs after all | `test_the_packaging_and_the_statement_agree` | RED |
+| 125 | CI installing without `-e` | `test_ci_still_builds_because_the_documented_install_depends_on_it` | RED |
+| 126 | the stated round count disagreeing with the headings | `test_the_stated_round_count_matches_the_headings` | RED |
+| 127 | the stated behaviour count disagreeing with the rows | `test_the_stated_behaviour_count_matches_the_tables` | RED |
+| 128 | the count check reading a quoted old claim | `test_the_stated_round_count_matches_the_headings` | RED |
+
+### The walk was the only thing that could check this one
+
+There is no code in this round: the change is a paragraph and a test. So the walk was to run
+the claim. Built the wheel, installed it into a clean virtual environment, and ran it from a
+directory with no repository in sight:
+
+```
+entries: 21   anything under packs/: none
+pip install: exit 0
+winnow packs    exit 1    no packs found.
+```
+
+Exit 1 confirmed. **And the quoted message was wrong** — I had written that it exits with
+"no domain packs found", which is the wording of the exit-code TABLE, not of the message. The
+tool says `no packs found.` I quoted a string I had not read, into the paragraph explaining
+why a whole distribution channel is closed.
+
+Row 123 also survived its first mutation, for the familiar reason: replacing one clause left
+"packs" and "pip install -e ." standing elsewhere in the same paragraph, so the section went
+on giving the reason. A mutation has to remove the behaviour, not a sentence of it.
+
+### This document's own checker agreed with a mistake it was recording
+
+Writing "twenty-one" turned the suite red, and the message was:
+
+```
+the summary says five (5) rounds; there are 21 headings
+```
+
+There is no "five" in the summary. The pattern was `behaviours, over ([a-z]+) rounds`, and
+`[a-z]+` cannot match a hyphen, so the search slid down the document and matched the
+parenthetical near the top that **quotes the old wrong line** — *"26 behaviours, over five
+rounds"* — the very error this file records having made.
+
+The hyphen is a spelling bug and would have bitten at round twenty-one whatever else was
+true. The unanchored search is the real one: **a file whose subject is claims that turned out
+to be wrong will always contain quoted wrong claims**, so a loose search over it is
+guaranteed to find one eventually and cannot tell it from the current claim. Anchored on the
+bold summary line now — which is the anchoring its sibling `\*\*(\d+) behaviours` already
+had, and why that one never hit this.

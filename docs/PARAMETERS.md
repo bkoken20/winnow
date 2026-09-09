@@ -19,7 +19,7 @@ the end.
 | `corpus_path` | `winnow.db` | The SQLite corpus file. One file; back it up by copying it. |
 | `notes_path` | *(unset)* | Default folder for `winnow index`. Also settable via the `WINNOW_NOTES` environment variable. |
 | `cache_path` | `winnow-cache` | Where material fetched from a URL is kept, one folder per URL. Re-running the same link uses the cache instead of downloading again. |
-| `caption_languages` | `en.*` | Caption languages requested from yt-dlp when fetching a URL. |
+| `caption_languages` | `en-orig` | Caption track requested from yt-dlp when fetching a URL. `--sub-langs` is a regex, and `en-orig` is the ORIGINAL English track. If a video has none — because it is in another language — Winnow falls back once to `en`, which is YouTube's machine translation, and says so. The old default `en.*` matched both and fetched the same captions twice, through the translation endpoint that rate-limits. |
 
 ## Models
 

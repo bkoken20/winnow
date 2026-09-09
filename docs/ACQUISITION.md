@@ -73,7 +73,7 @@ fails in confusing ways — an unexplained extraction error is usually a stale v
 
 ```bash
 yt-dlp --skip-download --write-auto-subs --write-subs \
-       --sub-langs "en.*" --sub-format vtt \
+       --sub-langs "en-orig" --sub-format vtt \
        -o "%(id)s/%(id)s.%(ext)s" \
        "<URL>"
 ```
@@ -83,7 +83,11 @@ What each flag does:
 - `--skip-download` — do not fetch the media at all. Fast, small, and usually sufficient.
 - `--write-subs` — human-authored subtitles, when they exist. Better quality.
 - `--write-auto-subs` — automatic (machine) captions. Nearly always present.
-- `--sub-langs "en.*"` — English variants. Use your own language code as needed.
+- `--sub-langs "en-orig"` — the ORIGINAL English track. `--sub-langs` is a regex, so
+  `"en.*"` also matches `en`, which on an English video is YouTube's machine
+  translation of the original — the same captions a second time, fetched through the
+  endpoint that rate-limits. Ask for the original; use `"en"` deliberately when the
+  video is in another language and a translation is what you want.
 - `--sub-format vtt` — WebVTT. Winnow also reads SRT.
 - `-o "%(id)s/%(id)s.%(ext)s"` — one folder per item, which is the layout `winnow ingest`
   expects when you pass a folder.
@@ -101,7 +105,7 @@ terminal output, architecture diagrams. For those, the vision model needs actual
 
 ```bash
 yt-dlp -f "bv*[height<=720]+ba/b[height<=720]" \
-       --write-auto-subs --write-subs --sub-langs "en.*" --sub-format vtt \
+       --write-auto-subs --write-subs --sub-langs "en-orig" --sub-format vtt \
        -o "%(id)s/%(id)s.%(ext)s" \
        "<URL>"
 ```
@@ -124,7 +128,7 @@ titles, choose a sample that covers genuinely different ground, and fetch only t
 ```bash
 # A specific range, once you know what is there.
 yt-dlp --playlist-items 1-20 --skip-download --write-auto-subs \
-       --sub-langs "en.*" --sub-format vtt -o "%(id)s/%(id)s.%(ext)s" "<URL>"
+       --sub-langs "en-orig" --sub-format vtt -o "%(id)s/%(id)s.%(ext)s" "<URL>"
 ```
 
 ### When it fails

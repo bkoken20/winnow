@@ -87,6 +87,11 @@ Below the pack's `min_corpus`, no cutoff is applied at all — the verdict is `u
 the score is still shown, so you can see how close the nearest match was even when Winnow
 declines to rule on it.
 
+**One other verdict skips the cutoffs.** A claim that is *already stored* — you are ingesting
+something for the second time — is `known` whatever it scores, because the corpus
+demonstrably contains it. Its score is still the real distance to the nearest *other* claim,
+so it can read low beside `known`; the rationale on that verdict says which case it is.
+
 **The thresholds are calibrated for `nomic-embed-text`.** Similarity scales differ between
 embedding models, so these numbers mean something different under another one — which is
 part of why changing `embed_model` under an existing corpus is refused rather than warned

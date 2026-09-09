@@ -376,7 +376,12 @@ class Pipeline:
         return Verdict(
             claim_id=claim.id,
             novelty=NOVELTY_KNOWN,
-            similarity=1.0,
+            # The REAL similarity to the nearest other claim, which is what that column
+            # means everywhere else and what the neighbour search above already computed.
+            # A flat 1.0 was a sentinel for "this exact claim is stored" sitting in a
+            # column documented to hold a measurement -- and the rationale below already
+            # says that in words, which is where it belongs.
+            similarity=neighbours[0].similarity if neighbours else 0.0,
             neighbours=neighbours,
             coverage=self.judge.coverage(claim.id),
             judge=self.judge.stamp(),

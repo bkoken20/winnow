@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**153 behaviours, over twenty-six rounds.** Every mutation was detected except those recorded
+**159 behaviours, over twenty-seven rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1223,3 +1223,62 @@ corpus span **28 to 86 characters, a 3.1x spread**, against the 18x spread acros
 made median sampling necessary there — and a judge call's cost is dominated by the prompt
 template and the neighbour claims rather than by the claim itself. Unit times count is the
 honest estimator here; if that stops being true, this paragraph is where to look.
+
+## Round twenty-seven — a fetch that could hang forever, invisibly
+
+`subprocess.run(command, capture_output=True, text=True)`. No timeout, so a stalled
+connection or a site that accepts and never answers left Winnow waiting with the
+`running: yt-dlp ...` line on screen and nothing after it, with no end. Ctrl-C was the only
+exit and it killed the run rather than the fetch.
+
+`capture_output=True` is the second half, and it is right for captions — seconds of work,
+and the text is what the failure message quotes. For `--with-video` it is wrong: hundreds of
+megabytes with yt-dlp's own progress display swallowed until the process ends, so a download
+that is working looks exactly like one that has hung.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 154 | a caption fetch unbounded again | `test_a_hung_fetch_is_stopped_rather_than_waited_on` | RED (2) |
+| 155 | a video download captured again | `test_a_video_download_is_watched_rather_than_captured` | RED |
+| 156 | the timeout message not naming the setting | `test_a_hung_fetch_is_stopped_rather_than_waited_on` | RED |
+| 157 | an uncaptured failure quoting nothing | `test_a_failed_video_download_still_says_where_to_look` | RED |
+| 158 | the configured timeout dropped in `cmd_ingest` | `test_the_command_line_passes_the_configured_timeout` | RED |
+| 159 | the field default a copy of the constant | `test_the_field_default_is_the_constant_not_a_copy_of_it` | RED |
+
+### The walk, against real subprocesses
+
+Fakes prove the arguments are passed. Only a real process proves the timeout fires:
+
+```
+a stand-in that sleeps 60s, limit 2s   -> raised after 2.02s
+a second bounded call                  -> returned in 1.02s (nothing left running)
+
+captions    yt-dlp's line reached the terminal: False   winnow quoted: ERROR: something went wrong
+with_video  yt-dlp's line reached the terminal: True    winnow quoted: (yt-dlp's output is above)
+```
+
+### Row 159: the walk found a defect it had just watched me commit
+
+Two constants held 600 — `Config.fetch_timeout_seconds` and `acquire.DEFAULT_FETCH_TIMEOUT` —
+agreeing by coincidence with nothing to keep them agreeing. **That is the same shape as round
+twenty-three**, where `status` and the pipeline compared different model names that happened
+to be equal for one backend, and I introduced it in this fix about an hour after writing that
+round up. One definition now: the constant lives in `config`, `acquire` imports it, and the
+dataclass default IS it.
+
+### Three survivors, and what each says about the test rather than the code
+
+**157.** Deleting the "(yt-dlp's output is above)" fallback left the suite green: my assertion
+was `"above" in said`, and the standing advice block already contains *"yt-dlp's own message
+is above and is the thing to read"*. The test passed on the wrong sentence. It now asserts
+the SHAPE — the line under the exit-code line must not be blank.
+
+**158.** Dropping `timeout_seconds=` from `cmd_ingest` left the suite green: nothing covered
+the wiring. This is the identical gap to the rejudge budget one round earlier, and I did not
+generalise the lesson when I had it. **An argument that is parsed, accepted and dropped needs
+its own test, every time.**
+
+**159.** Replacing the constant with a literal `600` left the suite green *correctly*. The
+behaviour is "the two agree", and a literal 600 agrees; what the mutation removes is the
+MECHANISM that keeps them agreeing. No value comparison can see that, so the check reads the
+source — the same instrument the documented-defaults tests use.

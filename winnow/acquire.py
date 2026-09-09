@@ -23,6 +23,8 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+from .config import DEFAULT_FETCH_TIMEOUT
+
 # Captions only. Small, fast, and enough for everything except frame description.
 #
 # --sleep-requests paces the metadata calls. yt-dlp names it as the flag that addresses the
@@ -164,7 +166,28 @@ def announce_flushed(message: str) -> None:
     print(message, flush=True)
 
 
-def _run_yt_dlp(url: str, dest: Path, languages: str, with_video: bool, announce):
+def _run_yt_dlp(
+    url: str,
+    dest: Path,
+    languages: str,
+    with_video: bool,
+    announce,
+    timeout_seconds: int = DEFAULT_FETCH_TIMEOUT,
+):
+    """Run yt-dlp once: bounded always, and watched when there is something to watch.
+
+    CAPTURED for captions. That is seconds of work, and the text is what the failure
+    message quotes -- yt-dlp explains itself far better than an exit code does.
+
+    NOT captured for `--with-video`. That is hundreds of megabytes, and capturing swallows
+    yt-dlp's own progress display until the process ends, so a download that is working
+    looks exactly like one that has hung. Letting it write straight to the terminal is the
+    progress report; the failure message then points at it rather than quoting nothing.
+
+    TIMED either way. `subprocess.run` without a timeout waits forever, so a stalled
+    connection or a site that accepts and never answers left Winnow with the "running:"
+    line on screen and no end -- and Ctrl-C killed the whole run rather than the fetch.
+    """
     command = [
         *yt_dlp_command(),
         *CAPTION_ARGS,
@@ -176,7 +199,20 @@ def _run_yt_dlp(url: str, dest: Path, languages: str, with_video: bool, announce
     command.append(url)
 
     announce("running: " + " ".join(command))
-    return subprocess.run(command, capture_output=True, text=True)
+    try:
+        if with_video:
+            return subprocess.run(command, timeout=timeout_seconds)
+        return subprocess.run(
+            command, capture_output=True, text=True, timeout=timeout_seconds
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise AcquisitionFailed(
+            f"yt-dlp timed out after {timeout_seconds} seconds for {url}.\n"
+            "  Nothing was reported for that whole time, which usually means the "
+            "connection stalled rather than that the work is large.\n"
+            "  Raise `fetch_timeout_seconds` in winnow.json if the download is genuinely "
+            "that long, or retry -- Winnow does not retry for you."
+        ) from exc
 
 
 def _captions_in(dest: Path) -> list[Path]:
@@ -190,6 +226,7 @@ def fetch(
     languages: str = DEFAULT_CAPTION_LANGS,
     with_video: bool = False,
     announce=announce_flushed,
+    timeout_seconds: int = DEFAULT_FETCH_TIMEOUT,
 ) -> Path:
     """Fetch captions (and optionally video) for `url` into `dest`. Returns the folder.
 
@@ -204,7 +241,7 @@ def fetch(
     dest = Path(dest)
     dest.mkdir(parents=True, exist_ok=True)
 
-    result = _run_yt_dlp(url, dest, languages, with_video, announce)
+    result = _run_yt_dlp(url, dest, languages, with_video, announce, timeout_seconds)
 
     if result.returncode == 0 and not _captions_in(dest) and languages == DEFAULT_CAPTION_LANGS:
         # No original English track: the video is in another language, so the machine
@@ -219,14 +256,17 @@ def fetch(
         # was wanted -- is already on disk. Passing with_video through re-requested hundreds
         # of megabytes that had just been fetched.
         result = _run_yt_dlp(
-            url, dest, CAPTION_TRANSLATION_FALLBACK, False, announce
+            url, dest, CAPTION_TRANSLATION_FALLBACK, False, announce, timeout_seconds
         )
 
     if result.returncode != 0:
+        # Nothing is captured for a video download -- it went to the terminal, where the
+        # user has already read it. Quoting the empty capture would print "None".
         tail = (result.stderr or result.stdout or "").strip().splitlines()[-3:]
+        quoted = "\n  ".join(tail) if tail else "(yt-dlp's output is above)"
         raise AcquisitionFailed(
             f"yt-dlp exited {result.returncode} for {url}\n  "
-            + "\n  ".join(tail)
+            + quoted
             + "\n  yt-dlp's own message is above and is the thing to read. Common causes:\n"
             "    - the video is unavailable, private, deleted or region-locked\n"
             "    - members-only or otherwise gated: you need access to it, which is\n"

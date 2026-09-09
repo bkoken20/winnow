@@ -42,7 +42,8 @@ def _fetch_calls(monkeypatch):
     """Record fetch() calls and lay down captions, as a real fetch would."""
     calls = []
 
-    def fake_fetch(url, dest, *, languages="en.*", with_video=False, announce=print):
+    def fake_fetch(url, dest, *, languages="en.*", with_video=False, announce=print,
+                   **kwargs):
         calls.append({"url": url, "dest": dest, "with_video": with_video})
         dest.mkdir(parents=True, exist_ok=True)
         (dest / "video.en.vtt").write_text(

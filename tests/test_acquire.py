@@ -70,7 +70,7 @@ class FakeYtDlp:
         self.stderr = stderr
         self.command = None
 
-    def __call__(self, command, capture_output=True, text=True):
+    def __call__(self, command, **kwargs):
         self.command = command
         if self.write_captions:
             out = Path(command[command.index("-o") + 1]).parent

@@ -29,6 +29,13 @@ EMBED_BACKENDS = ("ollama", "hashing")
 # recorded in each verdict's stamp.
 JUDGE_LOCATIONS = ("local", "cloud")
 
+# How long a single yt-dlp call may take before Winnow stops waiting. THE definition: the
+# dataclass field below defaults to this and `winnow.acquire` imports it, so there is one
+# number rather than two that happen to agree. NOT MEASURED -- no experiment here
+# establishes a typical fetch, and a video download depends entirely on the file and the
+# link. It exists to bound a HANG, not to be tight.
+DEFAULT_FETCH_TIMEOUT = 600
+
 LOOPBACK_HOSTNAMES = ("localhost", "127.0.0.1", "::1")
 
 
@@ -77,6 +84,7 @@ class InvalidConfiguration(ValueError):
 # Settings that are a SIZE: zero or negative is never a usable value for any of them, and
 # zero is the shape a half-edited file takes.
 POSITIVE_SETTINGS = (
+    "fetch_timeout_seconds",
     "text_num_ctx",
     "vision_num_ctx",
     "judge_num_ctx",
@@ -186,6 +194,8 @@ class Config:
     # translation endpoint that causes the subtitle 429. "en-orig" is the original alone;
     # Winnow falls back to "en" by itself when a video has no original English track.
     caption_languages: str = "en-orig"
+    # See DEFAULT_FETCH_TIMEOUT above: one number, not a copy of one.
+    fetch_timeout_seconds: int = DEFAULT_FETCH_TIMEOUT
 
     ollama_host: str = "http://localhost:11434"
     text_model: str = DEFAULT_TEXT_MODEL

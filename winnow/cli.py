@@ -342,6 +342,7 @@ def cmd_ingest(args) -> int:
                 target,
                 languages=config.caption_languages,
                 with_video=args.with_video,
+                timeout_seconds=config.fetch_timeout_seconds,
             )
     else:
         target = Path(args.path)

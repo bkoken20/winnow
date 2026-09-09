@@ -58,7 +58,7 @@ The cutoffs, and what happens in each band, are in
 
 ## Quickstart
 
-Fourteen minutes from clone to a real verdict, measured on a 12 GB consumer GPU:
+Fourteen minutes from clone to a real verdict, measured on an RTX 5060 Ti (16 GB):
 
 ```bash
 git clone https://github.com/bkoken20/winnow.git && cd winnow
@@ -132,7 +132,7 @@ That division is the whole economic argument, and it is measured rather than ass
 | **the final read** | **you, or a frontier model you direct** | the part local models measurably cannot do |
 
 **What it actually costs, measured.** A 25-minute talk (21 KB of transcript) takes **4.9
-minutes** of local compute on a 12 GB consumer GPU and yields **72 claims**. Not a handful
+minutes** of local compute on an RTX 5060 Ti (16 GB) and yields **72 claims**. Not a handful
 — but 72 short statements is a few minutes of reading against 25 minutes of watching, and
 you can read them at your own pace, search them, and keep them.
 

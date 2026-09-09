@@ -94,6 +94,12 @@ NOT_MEASUREMENTS = {
     "14": "model size in qwen2.5:14b, and the quickstart's total minutes",
     "3": "counts in prose (three models, three passes)",
     "42": "the perturbation count, checked against PERTURBATION.md by its own test",
+    # A claim the ANALYSED VIDEO makes about its own server, quoted in the example output.
+    # Not a Winnow measurement, and nothing here should have to record it. It passed this
+    # check until 2026-09-10 only because _hardware wrongly said the timings were taken on
+    # "RTX 3060 12GB, 6-core Ryzen, 61 GB RAM" -- the video rig, copied from this very
+    # transcript. Correcting the record is what made this number surface.
+    "61": "the video's own claim about its server, quoted in the example output",
 }
 
 
@@ -159,8 +165,62 @@ def test_no_documentation_figure_claims_more_precision_than_a_single_run_support
 
 def test_the_caveat_survives_in_the_readme():
     """A measured number without its conditions invites being read as a specification."""
-    assert re.search(r"12\s*GB consumer GPU|consumer GPU", README), (
+    assert MEASUREMENTS["_caveat"], "the record must carry its own caveat"
+    assert re.search(r"measured on|consumer GPU|RTX", README), (
         "the README should say what hardware the figure came from"
+    )
+
+
+def test_the_readme_names_the_hardware_the_record_names():
+    """The README's rig and the record's rig are the same rig.
+
+    This used to assert the literal string "12 GB consumer GPU", which is a check that the
+    README contains a particular sentence -- not a check that it agrees with anything. The
+    two could therefore say different things forever, and did: `_hardware` recorded "RTX
+    3060 12GB, 6-core Ryzen, 61 GB RAM", which is the rig described IN the analysed video,
+    not the machine any of these figures were timed on. Every component was wrong -- the
+    card, its memory, the core count, the RAM -- and each one matched a claim in the
+    transcript, which is where they were copied from.
+
+    Derived from the record, so the record stays the single source and a change to either
+    side that is not made to both goes red.
+    """
+    gpu = MEASUREMENTS["_hardware"].split(",")[0].strip()
+    assert gpu, "_hardware must lead with the GPU the timings were taken on"
+
+    # The README's OWN prose, with every fenced block removed. Checking the whole file
+    # cannot work here and this is not hypothetical: the example output quotes the analysed
+    # video's claims, which name "an RTX 3060" and "12GB of VRAM" -- so a search of the
+    # whole README for the wrongly-recorded rig found it, in the transcript that was the
+    # source of the error. The check passed BECAUSE the defect was present.
+    prose = re.sub(r"```.*?```", "", README, flags=re.DOTALL)
+
+    # Compared with punctuation and spacing removed from BOTH sides, so "RTX 5060 Ti 16 GB"
+    # matches "an RTX 5060 Ti (16 GB)" -- and as one string rather than token by token,
+    # because a token like "Ti" or "GB" is a substring of ordinary English and would be
+    # found in any prose at all.
+    squash = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
+    assert squash(gpu) in squash(prose), (
+        f"MEASUREMENTS.json records the timings as taken on {gpu!r}, and the README's own "
+        "prose does not say so. A figure and the machine it came from must not drift apart."
+    )
+
+    # And the exclusion above must actually exclude, or this check can be satisfied by the
+    # quoted transcript instead of by the README's claim about itself -- which is exactly
+    # how the wrong rig went unnoticed: the example output names "an RTX 3060" and "12GB of
+    # VRAM", because those are claims the analysed video makes about ITS hardware.
+    #
+    # Asserted against the fenced blocks themselves rather than a hardcoded string. The
+    # first attempt asserted that "rtx306012gb" was absent, which is true of this README
+    # whether or not anything is excluded -- the two halves sit in different sentences --
+    # so it could not fail and did not when the stripping was removed.
+    fenced = [b for b in re.findall(r"```.*?```", README, flags=re.DOTALL) if squash(b)]
+    assert fenced, "no fenced blocks in the README; this exclusion has nothing to do"
+    leaked = [b.splitlines()[0] for b in fenced if squash(b) in squash(prose)]
+    assert not leaked, (
+        f"{len(leaked)} fenced block(s) are still inside what this test treats as the "
+        f"README's own prose, starting {leaked[:2]}. Quoted tool output is not the "
+        "README's claim about the machine it was measured on."
     )
 
 

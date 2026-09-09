@@ -1,6 +1,6 @@
 {
   "_purpose": "Headline figures quoted in user-facing documentation, with how each was obtained. The README once claimed '3 minutes' and 'a handful of claims' for a run that actually took 4.9 minutes and produced 72 -- both errors flattering the tool. Numbers in prose must come from here, and a test asserts the README matches.",
-  "_hardware": "RTX 3060 12GB, 6-core Ryzen, 61 GB RAM",
+  "_hardware": "RTX 5060 Ti 16 GB, AMD Ryzen 9 5900X (12 cores / 24 threads), 64 GB RAM",
   "_models": {
     "extraction": "qwen2.5:14b-instruct",
     "embedding": "nomic-embed-text",
@@ -123,5 +123,11 @@
     "closest_pair_cosine": 0.925,
     "note": "duplicate_threshold is 0.93, so a pair at 0.925 is stored and shown. The closest pairs are the same sentence reworded by a different extraction pass.",
     "how": "cosine over the stored embeddings of one real ingest; not a tuning study, and one run is not grounds for moving the default"
+  },
+  "_hardware_correction": {
+    "status": "NOT MEASURED -- a withdrawn attribution, quoted here to withdraw it",
+    "what_was_claimed": "RTX 3060 12GB, 6-core Ryzen, 61 GB RAM",
+    "why_withdrawn": "Corrected 2026-09-10. This read 'RTX 3060 12GB, 6-core Ryzen, 61 GB RAM', which is the rig described IN the video these figures were measured against -- every component was copied from claims in its transcript, and none of it ran anything recorded here. Verified from the machine: nvidia-smi 'NVIDIA GeForce RTX 5060 Ti, 16311 MiB', Win32_Processor 'AMD Ryzen 9 5900X 12-Core', 63.9 GB physical. The timings themselves are unaffected -- they were always this machine's.",
+    "corrected_on": "2026-09-10"
   }
 }

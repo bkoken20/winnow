@@ -38,6 +38,9 @@ OUTBOUND = {
     "winnow/acquire.py": "yt-dlp",
     "scripts/fetch_starter_corpus.py": "git clone",
     "winnow/media.py": None,  # ffmpeg, on this machine
+    # `getproxies()` only, to disclose a proxy in the path. It reads environment
+    # variables and, on Windows, the registry -- verified to open no socket.
+    "winnow/config.py": None,
 }
 
 

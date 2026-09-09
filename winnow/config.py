@@ -15,6 +15,7 @@ import warnings
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import getproxies
 
 CONFIG_FILENAME = "winnow.json"
 
@@ -27,6 +28,42 @@ EMBED_BACKENDS = ("ollama", "hashing")
 # OllamaClient(host=ollama_host), so this routes nothing -- it selects the warning and is
 # recorded in each verdict's stamp.
 JUDGE_LOCATIONS = ("local", "cloud")
+
+LOOPBACK_HOSTNAMES = ("localhost", "127.0.0.1", "::1")
+
+
+def is_loopback_host(url: str) -> bool:
+    """Does this URL point at this machine?
+
+    A module-level function because two very different things need the same answer: the
+    privacy statement, which must not call a remote host local, and the HTTP client, which
+    must not let a proxy intercept a loopback address. Two implementations of "is this
+    local" is how two answers start to disagree.
+
+    Fails CLOSED both times, and it is the same closed. Unparseable, or missing its scheme
+    (`ollama.example.com:11434` parses to no hostname at all) means not local -- so the
+    statement does not claim locality it cannot verify, and the client does not bypass a
+    proxy for an address it cannot read.
+    """
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if not parsed.scheme or not host:
+        return False
+    return host in LOOPBACK_HOSTNAMES
+
+
+def _proxy_for(url: str) -> str:
+    """The proxy urllib would use for this URL, or "" -- read from the environment.
+
+    `urllib` honours `http_proxy` / `https_proxy` and does NOT bypass loopback on its own.
+    Measured with a listener standing in for a proxy: a request to
+    `http://localhost:11434/api/embeddings` arrived at the proxy, and the proxy's reply was
+    accepted as an embedding. So the environment can put a third party in the path of every
+    claim without anything in this configuration file mentioning it.
+    """
+    scheme = (urlparse(url).scheme or "http").lower()
+    proxies = getproxies()
+    return proxies.get(scheme, "") or proxies.get("http", "")
 
 
 class InvalidConfiguration(ValueError):
@@ -261,14 +298,9 @@ class Config:
         machine" while sending every word to another box, which is worse than saying
         nothing at all.
         """
-        parsed = urlparse(self.ollama_host)
-        host = (parsed.hostname or "").lower()
-        if not parsed.scheme or not host:
-            # Unparseable, or missing its scheme (`ollama.example.com:11434` parses to no
-            # hostname at all). Refuse to call that local: this check fails CLOSED, because
-            # a privacy statement that fails open is worse than having none.
-            return False
-        return host in ("localhost", "127.0.0.1", "::1")
+        # The shared test, so this and `OllamaClient` cannot drift apart on what "local"
+        # means. It fails CLOSED: a host that cannot be read is not called local.
+        return is_loopback_host(self.ollama_host)
 
     @property
     def material_stays_local(self) -> bool:
@@ -360,6 +392,16 @@ class Config:
             reasons.append(
                 "judge_location is 'cloud' but judge_model is empty, so no judging happens "
                 "at all and this setting currently does nothing"
+            )
+        proxy = _proxy_for(self.ollama_host)
+        if proxy and not self.host_is_local:
+            # A proxy is a third party that receives every claim and transcript, and it is
+            # configured in the environment rather than in this file, so nothing else here
+            # would ever mention it. Only when the host is remote: for a loopback host the
+            # client refuses the proxy outright, so there is nothing to disclose.
+            reasons.append(
+                f"a proxy is configured ({proxy}), so everything sent to ollama_host "
+                "passes through it as well"
             )
         if self.embed_backend not in EMBED_BACKENDS:
             # This used to read `== "cloud"` and answer "embed_backend is set to 'cloud'",

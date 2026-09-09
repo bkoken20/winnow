@@ -25,6 +25,8 @@ import json
 import time
 import urllib.error
 import urllib.request
+
+from .config import is_loopback_host
 from dataclasses import dataclass
 
 DEFAULT_HOST = "http://localhost:11434"
@@ -82,11 +84,40 @@ class OllamaClient:
     # tests exercised the fake rather than this module and passed no matter what the code
     # did. A test that cannot fail is not evidence.
 
+    @property
+    def bypasses_proxy(self) -> bool:
+        """A loopback address is never proxied, whatever the environment says.
+
+        `urllib` reads `http_proxy` and does not bypass loopback on its own. Measured with a
+        listener standing in for a proxy and `ollama_host` at its default:
+
+            fake proxy received: POST http://localhost:11434/api/embeddings HTTP/1.1
+            embed() returned   : [0.1, 0.2]
+
+        The text left the machine while `winnow status` said "never transmitted", and the
+        vector came back from the proxy rather than from Ollama -- leaked AND wrong, with
+        nothing able to tell the difference.
+
+        There is no legitimate reason to proxy 127.0.0.1. An SSH tunnel binds a local port
+        directly and involves no proxy, so this does not break the forwarded-host case that
+        `judge_location: "cloud"` exists for. A genuinely remote host still honours the
+        environment, because a proxy is how many networks reach anything at all -- and the
+        privacy statement names it there.
+        """
+        return is_loopback_host(self.host)
+
+    def _opener(self) -> urllib.request.OpenerDirector:
+        if self.bypasses_proxy:
+            # An EMPTY ProxyHandler is what disables proxying; omitting the handler lets
+            # urllib install the environment's.
+            return urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        return urllib.request.build_opener()
+
     def _fetch(self, url: str, data: bytes) -> dict:
         request = urllib.request.Request(
             url, data=data, headers={"Content-Type": "application/json"}
         )
-        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+        with self._opener().open(request, timeout=self.timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
     def _post(self, path: str, body: dict) -> dict:

@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**140 behaviours, over twenty-four rounds.** Every mutation was detected except those recorded
+**147 behaviours, over twenty-five rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1101,3 +1101,66 @@ beside the destination line, so a script parsing verdicts out of stdout is not d
 
 `ingest` carries two messages now — one before the work and one attached to the results.
 Counted: one each, not a doubled sentence.
+
+## Round twenty-five — a proxy in the environment answered for Ollama
+
+`urllib` reads `http_proxy` and does not bypass loopback on its own. Measured with a listener
+standing in for a proxy and `ollama_host` at its default:
+
+```
+fake proxy received: POST http://localhost:11434/api/embeddings HTTP/1.1
+embed() returned   : [0.1, 0.2]
+```
+
+Two failures at once. The text left the machine while `winnow status` printed *"never
+transmitted"* — and the vector came back **from the proxy**, not from Ollama, so the result
+was wrong as well as leaked, and nothing in Winnow could tell the difference. An environment
+variable, set by an IT department years ago, silently becomes a recipient of every claim,
+every note and every transcript.
+
+A loopback address has no legitimate reason to be proxied, and an SSH tunnel binds a local
+port directly, so refusing the proxy there does not break the forwarded-host case
+`judge_location: "cloud"` exists for. A genuinely remote host still honours the environment —
+a proxy is how many networks reach anything at all — and the privacy statement now names it,
+because it is a third party receiving the material.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 141 | the request going through urllib's default opener | `test_a_proxy_does_not_receive_a_request_meant_for_localhost` | RED |
+| 142 | loopback no longer refusing the proxy | `test_a_proxy_does_not_receive_a_request_meant_for_localhost` | RED (2) |
+| 143 | `bypasses_proxy` false for loopback | `test_every_spelling_of_loopback_is_covered` | RED (6) |
+| 144 | `bypasses_proxy` true for a remote host | `test_a_remote_host_still_honours_the_proxy` | RED (2) |
+| 145 | loopback matched by suffix rather than exactly | `test_a_name_that_merely_resembles_loopback_is_not_loopback` | RED (2) |
+| 146 | the proxy unnamed in the privacy statement | `test_the_privacy_statement_names_the_proxy_for_a_remote_host` | RED |
+| 147 | `host_is_local` true for a remote host | across the suite | RED (15) |
+
+### Row 145 survived first, and the lookalike I chose was the wrong shape
+
+`host in LOOPBACK_HOSTNAMES` mutated to `host.endswith(LOOPBACK_HOSTNAMES)` left the suite
+green. The only lookalike hostname anywhere in the tests was `localhost.evil.example` — a
+**prefix**. It does not end in "localhost", so a suffix rule classifies it correctly and the
+mutation changed nothing observable.
+
+`not-localhost` and `evil.localhost` are the shapes that separate the two rules, and neither
+is verifiably this machine. A check that decides whether text leaves the machine fails closed
+on anything it cannot be certain of.
+
+### What the walk added
+
+The probe that found the defect used a fake proxy and watched the request arrive; the walk
+repeated it against the fixed code, because **a property returning True is not evidence that
+a packet did not go somewhere**:
+
+```
+loopback   bypasses_proxy=True    proxy received 0 new requests
+remote     bypasses_proxy=False   proxy received 1: POST http://box.example:11434/...
+```
+
+It also recorded a deliberate imprecision. `_proxy_for` falls back to the HTTP proxy when the
+scheme has none of its own, so for an `https` host with only `http_proxy` set it can name a
+proxy urllib would not actually use. That **over**-discloses, which is the safe direction for
+a privacy statement, and it is written down rather than left to be rediscovered.
+
+The loopback test now lives in one function shared by the privacy statement and the HTTP
+client. Two implementations of "is this local" is how two answers start to disagree — the
+same fault as round twenty-three, avoided rather than repeated.

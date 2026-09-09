@@ -286,7 +286,7 @@ Five things in this repository can reach the network. All five, in full:
 | what | when | what it sends |
 |---|---|---|
 | **yt-dlp** | `winnow ingest <url>` | contacts the site the link points at. Winnow prints the exact command before running it and sends nothing of yours beyond the link you gave. Pass a file or a folder instead and nothing is fetched at all. |
-| **Ollama at `ollama_host`** | every extraction, embedding and judgement | the full text being processed. It defaults to `http://localhost:11434`, so nothing leaves the machine — **`ollama_host` is the single setting that decides this**, and pointing it elsewhere sends everything there. `winnow status` says so plainly when you do. |
+| **Ollama at `ollama_host`** | every extraction, embedding and judgement | the full text being processed. It defaults to `http://localhost:11434`, so nothing leaves the machine — **`ollama_host` is the single setting that decides this**, and pointing it elsewhere sends everything there. `winnow status` says so plainly when you do. A loopback host is never sent through `http_proxy`, whatever your environment sets; a remote one is, and `status` names the proxy. |
 | **`scripts/fetch_starter_corpus.py`** | only when you run it | `git clone --depth 1` against the public repositories listed in the pack's starter-source file. It downloads; it uploads nothing but the clone request. |
 | **`pip install -U yt-dlp`** | the documented install | contacts a package index, like any pip install. Winnow never runs it for you. |
 | **`pip install -r requirements.txt`** | only to run the tests | the same package index. The runtime itself has no dependencies. |
@@ -308,7 +308,7 @@ deserve to be told about beforehand.
 python -m pytest tests/ -q
 ```
 
-The suite runs offline: no model server, no network. 140 behaviours the tool guarantees have been
+The suite runs offline: no model server, no network. 147 behaviours the tool guarantees have been
 verified to actually fail when the behaviour backing them is removed — see
 [tests/PERTURBATION.md](tests/PERTURBATION.md). A green test that could not have failed is
 not evidence. Three of those were found by mutating the source at random rather than by

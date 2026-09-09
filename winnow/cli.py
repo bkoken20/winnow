@@ -405,27 +405,63 @@ def cmd_rejudge(args) -> int:
 
 
 
+def _common_options(*, default) -> argparse.ArgumentParser:
+    """Options every command accepts, defined ONCE and attached everywhere.
+
+    `--config` was a top-level argument only, so `winnow ingest URL --config x.json` failed
+    with "unrecognized arguments: --config x.json" -- a message that names what it rejected
+    and not the one thing that helps, which is that the flag has to move left. That is the
+    spelling people type: the subcommand is what they came to run and the configuration is
+    an afterthought.
+
+    `SUPPRESS` on the subcommands is what makes it work in both places. With an ordinary
+    default, a subparser copy of the option writes `None` over the value the top-level form
+    already parsed -- so accepting the second spelling is exactly how you would break the
+    first. Suppressed, the action sets nothing unless the flag was actually given, and the
+    top-level parser's own copy supplies the default.
+
+    Two parents from one factory rather than one parent plus `set_defaults`, because
+    `parents=` SHARES action objects rather than copying them, and `set_defaults` walks
+    `self._actions` assigning `action.default`. Calling it on the top-level parser therefore
+    rewrites the default on the same object every subcommand is using, switching the
+    suppression off everywhere -- which is exactly the fault above, reintroduced by the fix
+    for it. The guard test caught it.
+    """
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
+        "--config",
+        default=default,
+        help="path to winnow.json (before or after the command)",
+    )
+    return common
+
+
 def build_parser() -> argparse.ArgumentParser:
+    common = _common_options(default=argparse.SUPPRESS)
     parser = argparse.ArgumentParser(
         prog="winnow",
         description="Give it a YouTube link; it tells you what the video says that you "
                     "do not already know.",
+        parents=[_common_options(default=None)],
     )
-    parser.add_argument("--config", default=None, help="path to winnow.json")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("status", help="configuration, corpus size, and privacy posture").set_defaults(
-        func=cmd_status
-    )
-    p_init = sub.add_parser("init", help="write a starter winnow.json")
+    sub.add_parser(
+        "status", help="configuration, corpus size, and privacy posture", parents=[common]
+    ).set_defaults(func=cmd_status)
+    p_init = sub.add_parser("init", help="write a starter winnow.json", parents=[common])
     p_init.add_argument(
         "--force", action="store_true",
         help="replace an existing config with defaults (discards what is there)",
     )
     p_init.set_defaults(func=cmd_init)
-    sub.add_parser("packs", help="list domain packs").set_defaults(func=cmd_packs)
+    sub.add_parser("packs", help="list domain packs", parents=[common]).set_defaults(
+        func=cmd_packs
+    )
 
-    p_index = sub.add_parser("index", help="build the corpus from a folder of notes")
+    p_index = sub.add_parser(
+        "index", help="build the corpus from a folder of notes", parents=[common]
+    )
     p_index.add_argument("folder", nargs="?", default=None)
     p_index.add_argument(
         "--accept-minutes",
@@ -436,7 +472,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_index.set_defaults(func=cmd_index)
 
     p_ingest = sub.add_parser(
-        "ingest", help="judge new material: a URL, a transcript, or a folder"
+        "ingest",
+        help="judge new material: a URL, a transcript, or a folder",
+        parents=[common],
     )
     p_ingest.add_argument("path", help="a video URL, or a path to a transcript or folder")
     p_ingest.add_argument(
@@ -449,9 +487,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_ingest.add_argument("--new-only", action="store_true", help="show only novel claims")
     p_ingest.set_defaults(func=cmd_ingest)
 
-    sub.add_parser("rejudge", help="re-judge all claims against the current corpus").set_defaults(
-        func=cmd_rejudge
-    )
+    sub.add_parser(
+        "rejudge",
+        help="re-judge all claims against the current corpus",
+        parents=[common],
+    ).set_defaults(func=cmd_rejudge)
     return parser
 
 

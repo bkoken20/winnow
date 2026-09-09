@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**72 behaviours, over thirteen rounds.** Every mutation was detected except those recorded
+**76 behaviours, over fourteen rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -513,3 +513,34 @@ tells them to open. Only one of those is recoverable with what they already know
 
 The second half is that the run now prints the file it read, so the choice is visible rather
 than inferred from the claims that come out.
+
+## Round fourteen — `--config`, and a fix that reintroduced its own bug
+
+`winnow ingest URL --config x.json` failed with *"unrecognized arguments: --config
+x.json"* -- a message that names what it rejected and not the one thing that helps, which is
+that the flag has to move to the left of the subcommand. That is the spelling people type:
+the subcommand is what they came to run and the configuration is an afterthought.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 73 | the flag not accepted before the subcommand | `test_the_flag_is_still_accepted_before_the_subcommand` | RED (7) |
+| 74 | the subcommand copy given an ordinary default | `test_the_flag_is_still_accepted_before_the_subcommand` | RED (5) |
+| 75 | `ingest` not accepting the flag after the command | `test_the_flag_is_accepted_after_the_subcommand` | RED |
+| 76 | `packs` not accepting the flag after the command | `test_the_flag_is_accepted_after_the_subcommand` | RED |
+
+### The guard test caught the fix
+
+Row 74 is not a hypothetical. The first version of the fix added the option to every
+subparser with `default=argparse.SUPPRESS`, so that a subcommand copy could not overwrite a
+value the top-level form had already parsed -- and then called
+`parser.set_defaults(config=None)` to supply the default in one place.
+
+**`parents=[...]` shares action objects; it does not copy them.** And `set_defaults` walks
+`self._actions` assigning `action.default`. So one call on the top-level parser rewrote the
+default on the very action every subcommand was using, switched the suppression off
+everywhere, and restored the exact fault being fixed -- in the opposite direction. Five tests
+went red naming it, all of them the *guard* half of the pair: `winnow --config x.json status`
+had stopped working while the new spelling worked fine.
+
+Written before the fix, the guard existed only because the failure mode was obvious in the
+abstract. It then happened.

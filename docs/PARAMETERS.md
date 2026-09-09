@@ -119,7 +119,7 @@ one that changes what you actually read.
 
 | flag | applies to | what it does |
 |---|---|---|
-| `--config PATH` | all | Use a different `winnow.json`. |
+| `--config PATH` | all | Use a different `winnow.json`. Accepted on either side of the command: `winnow --config x.json ingest URL` and `winnow ingest URL --config x.json` are the same thing. |
 | `--accept-minutes N` | `index` | Accept a projected run of N minutes. Winnow times one real file, projects the whole run by text volume **plus de-duplication scanning**, shows you the number, and refuses runs over ~2 minutes until you accept a budget that covers it. There is no flag that skips the measurement, and acceptance does not silence the number. |
 | `--new-only` | `ingest` | Print only claims judged `new`. |
 | `--with-video` | `ingest` | Also download the video so frames can be described. Much larger; captions alone are enough unless the pack uses frames. |

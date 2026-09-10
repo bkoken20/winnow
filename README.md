@@ -15,9 +15,13 @@ It is not a summarizer. A summary tells you what a video said; it cannot tell yo
 you needed to watch it. That question needs a memory of what you already know, which is what
 the corpus is.
 
-**Any topic.** What counts as a claim, and what "already known" means, live in a *domain
-pack* — a folder with a prompt and a schema. One ships, for AI and local-LLM tooling.
-Writing another is a JSON file and a prompt, not a fork.
+**Any topic, and more than one at a time.** What counts as a claim, and what "already
+known" means, live in a *domain pack* — a folder with a prompt and a schema. One ships, for
+AI and local-LLM tooling. Writing another is a JSON file and a prompt, not a fork.
+
+Two interests are two configs and a `--config` flag; they can share one corpus file without
+mixing, because every claim is stored and searched under its pack's name. See
+[More than one subject](#more-than-one-subject).
 
 Links are the common case, not the only one: anything you can put in a text file works too —
 a transcript you made yourself, documentation, your own notes. Captions come from yt-dlp,
@@ -245,6 +249,13 @@ The file it times is the median-sized one **that has something in it**. Empty fi
 skipped for that purpose: timing one measures nothing, and a folder where more than half the
 files are empty used to project a real run at roughly zero.
 
+**If your subject has no public reference set**, the starter-source route does not apply —
+and outside software most subjects do not have one. Your own notes are the better corpus
+anyway, because the question Winnow answers is what *you* already know, not what the field
+knows. Point `winnow index` at a folder of them; it reads `.txt`, `.md`, `.markdown` and
+`.mdx`, tells you which extensions it had to skip, and ignores hidden folders like `.git`.
+A pack's `starter_sources.json` is optional: leave the key out and the pack loads with no starter sources at all.
+
 **Then judge something:**
 
 ```bash
@@ -284,7 +295,35 @@ else in the codebase is domain-blind.
 
 `ai_tooling` ships as the worked example. Writing your own is a folder and a JSON file — see
 [docs/DOMAIN_PACKS.md](docs/DOMAIN_PACKS.md). Packs are configuration, not code, so a private
-pack can live outside the repository and never be published.
+pack can live outside the repository and never be published: set `packs_root` to the folder
+holding it, and `winnow packs` lists what loads.
+
+### More than one subject
+
+Nothing about a subject is global. A subject is a pack plus a config file, so two interests
+are two config files:
+
+| file | `pack` | `notes_path` |
+|---|---|---|
+| `winnow-ai.json` | `ai_tooling` | `./notes-ai` |
+| `winnow-food.json` | `mediterranean_cooking` | `./notes-food` |
+
+```bash
+winnow index ./notes-ai   --config winnow-ai.json   --accept-minutes 15
+winnow index ./notes-food --config winnow-food.json --accept-minutes 15
+
+winnow ingest <link> --config winnow-ai.json   --new-only
+winnow ingest <link> --config winnow-food.json --new-only
+```
+
+`--config` is accepted on either side of the subcommand. Both files may point `corpus_path`
+at the **same** database: claims carry their pack's name and every similarity search is
+filtered by it, so the two subjects never see each other and neither can make the other look
+`known`. Separate database files work equally well — that choice is about how you back things
+up, not about correctness.
+
+Each subject reaches its own pack's `min_corpus` on its own. A thin food corpus returns `?`
+while a mature AI one is already sorting `known` from `new`.
 
 ## Privacy
 

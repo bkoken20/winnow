@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**205 behaviours, over thirty-five rounds.** Every mutation was detected except those recorded
+**214 behaviours, over thirty-six rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1771,3 +1771,84 @@ ceremony with no failure behind it.
 
 Confirmed in a real redirected run after the fix: `using cached material` first, then
 `destination:`, `transcript:`, and the three passes in order.
+
+## Round thirty-six -- the same silence as `ingest`, in the command built to be long
+
+`index` is the command with the cost gate. It measures one file, projects the folder, prints
+"about 58.2 minutes" and asks you to accept it. Then, having established that the run is an
+afternoon, it said nothing at all until every file was done.
+
+```
+projected run: measured 6.02s for 12.4 KB (2.1 KB/s); 157 files totalling 7.5 MB
+proceeding -- accepted budget covers 58.2 minutes
+<nothing, for 58 minutes>
+indexed 157 files -> 3,412 claims stored
+```
+
+A projection is a promise about duration. It is not evidence that anything is still
+happening, and the longer the accepted budget the less a user can tell a working run from a
+wedged one. This is the same defect as round thirty-four's, in the command where it costs
+most -- and it was found by asking, after fixing `ingest`, which other loop runs long.
+
+**Two silences, not one.** The first is before the projection exists at all: the measurement
+is itself a full extraction, one model call per chunk, on a file chosen for being
+median-sized. Nothing announced it, so the command's first observable act came after that
+file had already been processed.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 206 | no file announced as it is indexed | `test_every_file_is_accounted_for_while_it_runs` | RED (5) |
+| 207 | the measured file not announced | `test_the_measured_file_is_named_on_screen` | RED (4) |
+| 208 | announced after the measurement instead of before | `test_the_measurement_is_announced_before_it_runs` | RED |
+| 209 | the sample dropped from the count | `test_the_sample_is_counted_once_not_twice` | RED (3) |
+| 210 | the total off by one | `test_the_progress_says_how_far_through_the_folder_it_is` | RED (4) |
+| 211 | the position removed from the line | `test_the_progress_says_how_far_through_the_folder_it_is` | RED |
+| 212 | the line stops naming the file | `test_the_measured_file_is_named_on_screen` | RED |
+| 213 | the narrative moved to stdout | `test_the_narrative_is_on_one_stream` | RED |
+| 214 | the gate stops refusing an over-budget run | `test_a_refused_run_announces_nothing_it_did_not_do` | RED |
+
+### Rows 208 and 212 survived the first time, and both tests were the reason
+
+**208.** The check asserted that the "measuring" line appears before the projection line.
+Called directly, `gate` prints nothing below 120 seconds, so there IS no projection line --
+the comparison was against `None` and held whatever the code did. Moving the announcement to
+after the extraction it announces changed no result. It is now ordered against the WORK: the
+extractor's model calls are recorded in the same list as the announcements, and the
+announcement must be first.
+
+**212.** The check asserted the CALLBACK received a path, which stays true when the printed
+line reads "measuring one file to project the run" and names nothing at all. Nothing tested
+what reached the screen. It now requires the printed line to contain a filename from the
+folder.
+
+Both are the recurring family: a check that passes for a reason unrelated to the behaviour
+it names. Neither was found by reading the tests -- only by mutating the code under them.
+
+### The sample is one of the N
+
+The measured file is removed from `files` after the gate, because its work is already done
+and gets committed rather than redone. Counting only what REMAINS reports **5 of 5 for a
+folder of six**, and the file whose timing justified the entire projection is the one that
+never appears on screen. It now leads the ordering instead of being dropped from it.
+
+### Walked on a real folder, uneven on purpose
+
+```
+folder on disk:                   what the user sees:
+  empty.md         0 bytes          measuring middling.md to project the run
+  huge.md       5238 bytes          [1 of 6] middling.md
+  large.md      3398 bytes          [2 of 6] empty.md
+  middling.md   1618 bytes          [3 of 6] huge.md
+  notes.rst       23 bytes          [4 of 6] large.md
+  small.md       286 bytes          [5 of 6] small.md
+  tiny.md         33 bytes          [6 of 6] tiny.md
+```
+
+`middling.md` is the median of the non-empty files, which is what the sampling intends, and
+it is announced both as the measured file and as the first indexed. `notes.rst` is not
+indexed and is reported as a skipped extension; `empty.md` is a readable note with nothing in
+it and is still a file, so it gets its line. The number of lines the user reads equals
+`result["files"]`, asserted in the walk rather than assumed.
+
+Confirmed through the real CLI, redirected to a file, against llama.cpp documentation and a
+local model: the ordering holds outside a terminal.

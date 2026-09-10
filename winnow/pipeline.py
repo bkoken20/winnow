@@ -99,6 +99,35 @@ def announce_transcript(path: Path, *, stream=None) -> None:
     print(f"transcript: {path}", file=stream or sys.stderr, flush=True)
 
 
+def announce_indexing(*, stage, path, number=None, total=None, stream=None) -> None:
+    """Say which file is being worked on, and how far through the folder that is.
+
+    Two stages, because `index` has two silences. The first is BEFORE the projection
+    exists: one real file is extracted to time it, and on a folder of large documents that
+    is minutes during which the tool has said nothing at all. The second is the run itself,
+    which the gate has just told the user could be an afternoon.
+
+    A projection is a promise about duration. It is not evidence that anything is still
+    happening, and the longer the accepted budget the less a user can tell a working run
+    from a wedged one.
+
+    The name only, not the whole path: a notes folder is nested, the paths are long, and
+    the leaf is what distinguishes one line from the next.
+    """
+    if stage == "measure":
+        print(
+            f"measuring {Path(path).name} to project the run",
+            file=stream or sys.stderr,
+            flush=True,
+        )
+        return
+    print(
+        f"[{number} of {total}] {Path(path).name}",
+        file=stream or sys.stderr,
+        flush=True,
+    )
+
+
 def announce_pass(*, number, total, chunks, chunk_chars, stream=None) -> None:
     """Say which extraction pass has started, and how much work it is.
 
@@ -316,9 +345,18 @@ class Pipeline:
         return stored
 
     def index_notes_folder(
-        self, folder: Path, accept_minutes: float | None = None, skip_known: bool = True
+        self,
+        folder: Path,
+        accept_minutes: float | None = None,
+        skip_known: bool = True,
+        progress=None,
     ) -> dict:
-        """Index a folder of notes, measuring one before committing to all of them."""
+        """Index a folder of notes, measuring one before committing to all of them.
+
+        `progress` defaults to `announce_indexing`; pass one to send the narrative
+        somewhere else, or to watch it in a test without capturing a stream.
+        """
+        progress = progress or announce_indexing
         folder = Path(folder)
         if not folder.is_dir():
             raise NotADirectoryError(f"{folder} is not a directory")
@@ -404,6 +442,11 @@ class Pipeline:
 
         # Measure the sample WITHOUT writing it. Committing here and gating afterwards meant
         # a refused run had already changed the corpus.
+        #
+        # Announced BEFORE it runs, not after: this is a full extraction, one model call
+        # per chunk, and it is the first thing the command does. Announcing it afterwards
+        # would describe the silence rather than fill it.
+        progress(stage="measure", path=sample)
         prepared, unit_seconds = time_one(self._prepare_note, sample)
         sample_sid, sample_claims, sample_vectors = prepared
         claims_per_file = max(len(sample_claims), 1)
@@ -431,12 +474,21 @@ class Pipeline:
         gate(projection, accepted_by_flag(accept_minutes, projection))
 
         # Accepted: the sample's work is already done, so commit it rather than redo it.
+        #
+        # The sample leads the ordering rather than being dropped from it. It is one of the
+        # N files and the user is owed a line for it: counting only what REMAINS reports
+        # "5 of 5" for a folder of six, and the file whose timing justified the whole
+        # projection is the one that never appears.
+        ordered = [sample] + [p for p in files if p != sample]
+        counted = len(ordered)
+
+        progress(stage="index", number=1, total=counted, path=sample)
         total = self._commit_note(sample, sample_sid, sample_claims, sample_vectors)
-        files = [p for p in files if p != sample]
-        for path in files:
+        for number, path in enumerate(ordered[1:], start=2):
+            progress(stage="index", number=number, total=counted, path=path)
             total += self.index_note(path)
         return {
-            "files": len(files) + 1,
+            "files": counted,
             "claims": total,
             "projection": projection,
             "unreadable": unreadable,

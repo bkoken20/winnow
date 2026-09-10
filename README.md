@@ -141,13 +141,14 @@ That division is the whole economic argument, and it is measured rather than ass
 | novelty by similarity | local embeddings | "have I seen this?" is a distance question, not a reasoning one |
 | **the final read** | **you, or a frontier model you direct** | the part local models measurably cannot do |
 
-**What it actually costs, measured.** A 25-minute talk (21 KB of transcript) takes about
-**4.8 minutes** of local compute on an RTX 5060 Ti (16 GB) and yields **about 70 claims**
-— three runs of the same talk against the same corpus took 4.9, 4.8 and 4.7 minutes and
-returned 72 claims, 72 again, and 69, because the extracting model samples rather than
-being deterministic. Not a handful
-— but 72 short statements is a few minutes of reading against 25 minutes of watching, and
-you can read them at your own pace, search them, and keep them.
+**What it actually costs.** A 25-minute talk (21 KB of transcript) takes **4.9 minutes** of
+local compute and yields **72 claims**, measured on an RTX 5060 Ti (16 GB). That figure is
+an order of magnitude, not a specification — your hardware will differ, the count varies a
+little run to run because the extracting model samples, and you do not have to take this
+number's word for anything: `index` shows you a projection before it starts, and every run
+reports what it actually cost when it finishes. Not a handful — but 72 short statements is a
+few minutes of reading against 25 minutes of watching, and you can read them at your own
+pace, search them, and keep them.
 
 **On a fresh corpus every one of them comes back `?`** — Winnow refuses to call anything
 novel until the corpus passes the pack's minimum, because a blind spot is not a discovery.

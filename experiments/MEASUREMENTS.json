@@ -38,8 +38,6 @@
         "corpus": "157 notes, 195 claims: llama.cpp 86, ollama 42, vllm 8, transformers 1"
       }
     ],
-    "about_minutes": 4.8,
-    "about_claims": 70,
     "why_a_range": "Extraction samples, so the claim count is not reproducible to the unit. Three runs of the identical talk against the identical corpus returned 72, 72 and 69 claims in 4.9, 4.8 and 4.7 minutes. Quoting one of them as the figure implied a determinism this does not have; the README now quotes the spread."
   },
   "dedupe_scan_cost": {

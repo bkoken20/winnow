@@ -3,7 +3,7 @@
 A green test proves nothing unless it could have gone red. Each behaviour below was
 deliberately broken in the source, the guarding test was run, and the tree restored.
 
-**214 behaviours, over thirty-six rounds.** Every mutation was detected except those recorded
+**220 behaviours, over thirty-seven rounds.** Every mutation was detected except those recorded
 below as GREEN — most of which turned out to be faults in the mutation rather than gaps in
 the tests, and one of which was a real gap that this process found.
 
@@ -1852,3 +1852,78 @@ it and is still a file, so it gets its line. The number of lines the user reads 
 
 Confirmed through the real CLI, redirected to a file, against llama.cpp documentation and a
 local model: the ordering holds outside a terminal.
+
+## Round thirty-seven -- an estimate you are asked to accept, and never told the truth about
+
+`index` and `rejudge` are the gated commands: they measure one unit, project the whole run,
+and refuse it unless you accept the figure. `index` then printed that projection a second
+time once the run was over --
+
+```
+measured 3.62s for 7.3 KB (2.0 KB/s); 4 files totalling 0.0 MB = about 23 seconds
+indexed 4 files -> 9 claims stored
+```
+
+-- with nothing beside it to compare against. The tool asks for consent to an estimate and
+then never says whether the estimate was any good. `ingest` had reported its elapsed time
+since round thirty-four; these two were the call sites left out.
+
+**Fixed as a property, not as two lines.** The list of gated commands is read from the
+argument parser, so a command that grows `--accept-minutes` tomorrow is covered the day it
+appears. "The reasoning was applied to the line that motivated it and to nothing else" is
+how the last three defects here happened, the flush in round thirty-five most recently.
+
+| # | mutation applied | test | result |
+|---|---|---|---|
+| 215 | index stops reporting its elapsed time | `test_index_says_what_it_cost` | RED (2) |
+| 216 | rejudge stops reporting its elapsed time | `test_rejudge_says_what_it_cost` | RED (2) |
+| 217 | the duration written as a raw float | `test_the_elapsed_figure_is_the_shared_formatter` | RED (2) |
+| 218 | index's clock removed | `test_index_says_what_it_cost` | RED (4) |
+| 219 | the projection printed after the outcome | `test_the_projection_and_the_actual_are_readable_together` | RED |
+| 220 | a gated command the tests do not cover | `test_the_gated_commands_are_the_ones_expected` | RED (3) |
+
+### Row 219's first mutation was a no-op, not a gap
+
+A blank `print()` inserted between the projection and the outcome SURVIVED, and the test was
+right to let it: the assertion filters blank lines, and a blank line is not content between
+two numbers. The behaviour actually guarded is their ORDER, so the mutation became "print
+the projection after the outcome" -- give the reader the result and only then the estimate
+it should be checked against. That dies. A mutation has to remove the behaviour, not merely
+edit the code near it.
+
+### A tautology caught before the battery could catch it
+
+`test_the_elapsed_figure_is_the_shared_formatter` extracted the duration from the summary
+line WITH the duration regex, then asserted the extracted text matched that same regex:
+
+```
+stated = re.search(rf"\bin ({A_DURATION})", summary).group(1)
+assert ... or re.fullmatch(A_DURATION, stated)
+```
+
+True by construction, for any implementation whatsoever. It now fakes the clock to a known
+150 seconds and asserts the literal string `in 2.5 minutes`, so a raw float or an H:MM:SS --
+either of which would make a reader convert before they could compare with the projection
+printed directly above -- fails it.
+
+### What the first real check found
+
+The whole point of the elapsed figure is that the projection becomes checkable. Its first
+use, on four real llama.cpp documents with a local model:
+
+```
+run   projected     actual        ratio
+1     23 seconds    51 seconds    2.2x
+2     20 seconds    51 seconds    2.6x
+```
+
+The actual is identical both times; the projection moves because the sampled unit does
+(3.62s, then 3.15s). Not a cold model, and not noise.
+
+This does not refute the recorded `projection_accuracy` of 0.97x-1.19x, which was measured
+on a **200-300 file** index where a median-sized sample is representative of the folder.
+Four files whose largest is 4.4x the median is a different regime, and the projection scales
+by BYTES -- it assumes time per byte is constant, when the cost is dominated by what the
+model GENERATES per chunk. Nothing had ever compared the two, because no ordinary run
+reported what it cost. Recorded in `experiments/MEASUREMENTS.json`; not fixed here, and not
+diagnosed beyond what was measured.

@@ -303,6 +303,10 @@ def cmd_packs(args) -> int:
 
 
 def cmd_index(args) -> int:
+    # The whole command, as the user experiences it. `index` is gated precisely because it
+    # can run for an afternoon, and until now it never said whether it had.
+    started = time.perf_counter()
+
     from .pipeline import Pipeline
 
     config = Config.load(args.config)
@@ -345,9 +349,20 @@ def cmd_index(args) -> int:
 
     if result["projection"]:
         print(result["projection"].describe())
-    # `claims` is what was STORED: near-duplicates of something already in the
-    # corpus are extracted, judged, and then not kept.
-    print(f"indexed {result['files']} files -> {result['claims']} claims stored")
+    # Printed directly under the projection above, in the same units, so the estimate the
+    # user was asked to accept becomes something they can check -- which the very first
+    # check found worth doing: two runs of a 4-file folder projected 23s and 20s and took
+    # 51s both times, 2.2x and 2.6x out. `experiments/MEASUREMENTS.json` records projection
+    # accuracy as 0.97x-1.19x, measured on a 200-300 file index, where the sampled median
+    # is representative; a small skewed folder is a different regime and nothing had ever
+    # compared the two, because no ordinary run reported what it cost.
+    #
+    # `claims` is what was STORED: near-duplicates of something already in the corpus are
+    # extracted, judged, and then not kept.
+    print(
+        f"indexed {result['files']} files -> {result['claims']} claims stored "
+        f"in {human_seconds(time.perf_counter() - started)}"
+    )
     if result["unreadable"]:
         # Said even on a successful run: a folder of 400 notes with three stragglers in
         # another format is exactly where a quiet skip costs the most.
@@ -488,6 +503,10 @@ def cmd_ingest(args) -> int:
 
 
 def cmd_rejudge(args) -> int:
+    # Gated like `index`, and silent about its cost for the same reason: nobody carried the
+    # elapsed figure past the command that first needed it.
+    started = time.perf_counter()
+
     from .pipeline import Pipeline
 
     config = Config.load(args.config)
@@ -504,8 +523,9 @@ def cmd_rejudge(args) -> int:
     counts = Counter(v.novelty for v in verdicts)
     seen = counts[NOVELTY_KNOWN] + counts[NOVELTY_VARIANT]
     summary = (
-        f"re-judged {len(verdicts)} claims: {counts[NOVELTY_NEW]} new, "
-        f"{seen} known or variant"
+        f"re-judged {len(verdicts)} claims "
+        f"in {human_seconds(time.perf_counter() - started)}: "
+        f"{counts[NOVELTY_NEW]} new, {seen} known or variant"
     )
     if counts[NOVELTY_UNKNOWN]:
         summary += (
